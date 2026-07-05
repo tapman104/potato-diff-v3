@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -31,7 +30,7 @@ import kotlin.math.sqrt
 
 /**
  * Integration point that wires Compose touch events to [MpvGestureStateMachine]
- * and renders the visual feedback indicators.
+ * and renders visual feedback indicators.
  */
 @Composable
 fun GestureHandler(
@@ -72,30 +71,14 @@ fun GestureHandler(
     }
     var localBrightness by remember { mutableFloatStateOf(if (initialBrightness >= 0f) initialBrightness else 0.5f) }
 
-    var doubleTapSeekSec by remember { mutableIntStateOf(0) }
-    var doubleTapForward by remember { mutableStateOf(true) }
-    var doubleTapLabel by remember { mutableStateOf("") }
-    var showDoubleTapOverlay by remember { mutableStateOf(false) }
+    var doubleTapOverlayData by remember { mutableStateOf<Triple<Int, Boolean, String>?>(null) }
+    var hSeekOverlayData by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var speedOverlayVal by remember { mutableStateOf<Float?>(null) }
+    var volumeOverlayPct by remember { mutableStateOf<Int?>(null) }
+    var brightnessOverlayPct by remember { mutableStateOf<Int?>(null) }
+    var zoomOverlayShown by remember { mutableStateOf(false) }
 
-    var hSeekCurrentLabel by remember { mutableStateOf("") }
-    var hSeekDeltaLabel by remember { mutableStateOf("") }
-    var showHSeekOverlay by remember { mutableStateOf(false) }
-    // Tracks the exact seek target during gesture scrub so the bottom seek bar can
-    // display it in real-time, bypassing the 200ms throttle on playerState.currentPositionMs.
     var gestureSeekPreviewMs by remember { mutableStateOf(-1L) }
-
-    var speedValue by remember { mutableFloatStateOf(1.0f) }
-    var showSpeedOverlay by remember { mutableStateOf(false) }
-
-    var volPercentageDisplay by remember { mutableIntStateOf(volumePercentage) }
-    var showVolOverlay by remember { mutableStateOf(false) }
-
-    var brightPercentageDisplay by remember {
-        mutableIntStateOf(if (initialBrightness >= 0f) (initialBrightness * 100).roundToInt() else 50)
-    }
-    var showBrightOverlay by remember { mutableStateOf(false) }
-
-    var showZoomOverlay by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentZoom) {
         localZoomLog2 = currentZoom
@@ -103,12 +86,12 @@ fun GestureHandler(
     LaunchedEffect(initialBrightness) {
         if (initialBrightness >= 0f) {
             localBrightness = initialBrightness
-            brightPercentageDisplay = (initialBrightness * 100).roundToInt()
+            if (brightnessOverlayPct != null) {
+                brightnessOverlayPct = (initialBrightness * 100).roundToInt()
+            }
         }
     }
 
-    // rememberUpdatedState ensures the controller always reads the *current* lambda/value,
-    // not the stale capture from first composition (which would return 0L for position/duration).
     val currentPositionMsRef = rememberUpdatedState(currentPositionMs)
     val durationMsRef = rememberUpdatedState(durationMs)
     val isPlayingRef = rememberUpdatedState(isPlaying)
@@ -133,28 +116,15 @@ fun GestureHandler(
             override val doubleTapSeekAreaWidthPercent: Int get() = 30
             override val isDynamicSpeedOverlayEnabled: Boolean get() = true
 
-            override fun pause() { }
+            override fun pause() {}
+            override fun unpause() {}
 
-            override fun unpause() { }
-
-            override fun seekTo(positionMs: Long, precise: Boolean) {
-                onSeek(positionMs, precise)
-            }
-
-            override fun seekGesture(positionMs: Long) {
-                onSeekGesture(positionMs)
-            }
-
-            override fun seekCommit(positionMs: Long) {
-                onSeekCommit(positionMs)
-            }
+            override fun seekTo(positionMs: Long, precise: Boolean) = onSeek(positionMs, precise)
+            override fun seekGesture(positionMs: Long) = onSeekGesture(positionMs)
+            override fun seekCommit(positionMs: Long) = onSeekCommit(positionMs)
 
             override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
-                if (targetSpeed != 1.0f) {
-                    onSpeedOverride(targetSpeed)
-                } else {
-                    onSpeedRestore()
-                }
+                if (targetSpeed != 1.0f) onSpeedOverride(targetSpeed) else onSpeedRestore()
             }
 
             override fun setVolume(volume: Float) {
@@ -166,14 +136,14 @@ fun GestureHandler(
                     // ignore if permission denied
                 }
                 val pct = localVolumePercent.roundToInt()
-                volPercentageDisplay = pct
+                volumeOverlayPct = pct
                 onVolumeChange(pct)
             }
 
             override fun setBrightness(brightness: Float) {
                 localBrightness = brightness.coerceIn(0f, 1f)
                 val pct = (localBrightness * 100).roundToInt()
-                brightPercentageDisplay = pct
+                brightnessOverlayPct = pct
                 onBrightnessChange(localBrightness)
             }
 
@@ -185,22 +155,15 @@ fun GestureHandler(
             }
 
             override fun showDoubleTapSeekOverlay(seekAmountSec: Int, isForward: Boolean, label: String) {
-                doubleTapSeekSec = seekAmountSec
-                doubleTapForward = isForward
-                doubleTapLabel = label
-                showDoubleTapOverlay = true
+                doubleTapOverlayData = Triple(seekAmountSec, isForward, label)
             }
 
             override fun hideDoubleTapSeekOverlay() {
-                showDoubleTapOverlay = false
+                doubleTapOverlayData = null
             }
 
             override fun showHorizontalSeekOverlay(currentTimeLabel: String, deltaLabel: String, targetPositionMs: Long) {
-                hSeekCurrentLabel = currentTimeLabel
-                hSeekDeltaLabel = deltaLabel
-                showHSeekOverlay = true
-                // Emit the raw millisecond target directly so the bottom seek bar updates
-                // in lockstep with the finger without waiting for the mpv property observer.
+                hSeekOverlayData = currentTimeLabel to deltaLabel
                 gestureSeekPreviewMs = targetPositionMs
                 onSeekPreviewMs(targetPositionMs)
             }
@@ -209,53 +172,50 @@ fun GestureHandler(
                 if (delayMs > 0) {
                     coroutineScope.launch {
                         delay(delayMs)
-                        showHSeekOverlay = false
+                        hSeekOverlayData = null
                         gestureSeekPreviewMs = -1L
                         onSeekPreviewMs(-1L)
                     }
                 } else {
-                    showHSeekOverlay = false
+                    hSeekOverlayData = null
                     gestureSeekPreviewMs = -1L
                     onSeekPreviewMs(-1L)
                 }
             }
 
             override fun showSpeedOverlay(speed: Float, interactiveSliderIndex: Int?) {
-                speedValue = speed
-                showSpeedOverlay = true
+                speedOverlayVal = speed
             }
 
             override fun hideSpeedOverlay() {
-                showSpeedOverlay = false
+                speedOverlayVal = null
             }
 
             override fun showVolumeOverlay(percentage: Int) {
-                volPercentageDisplay = percentage
-                showVolOverlay = true
+                volumeOverlayPct = percentage
             }
 
             override fun hideVolumeOverlay() {
-                showVolOverlay = false
+                volumeOverlayPct = null
             }
 
             override fun showBrightnessOverlay(percentage: Int) {
-                brightPercentageDisplay = percentage
-                showBrightOverlay = true
+                brightnessOverlayPct = percentage
             }
 
             override fun hideBrightnessOverlay() {
-                showBrightOverlay = false
+                brightnessOverlayPct = null
             }
 
             override fun showPinchZoomOverlay(zoomPercentage: Int) {
-                showZoomOverlay = true
+                zoomOverlayShown = true
             }
 
             override fun hidePinchZoomOverlay() {
-                showZoomOverlay = false
+                zoomOverlayShown = false
             }
 
-            override fun showTapFeedback(x: Float, y: Float) { }
+            override fun showTapFeedback(x: Float, y: Float) {}
 
             override fun scheduleTimer(delayMs: Long, action: () -> Unit): Any {
                 return coroutineScope.launch {
@@ -268,9 +228,7 @@ fun GestureHandler(
                 (timerId as? Job)?.cancel()
             }
 
-            override fun triggerSingleTapAction() {
-                onToggleControls()
-            }
+            override fun triggerSingleTapAction() = onToggleControls()
         }
     }
 
@@ -371,55 +329,43 @@ fun GestureHandler(
                 }
             }
     ) {
-        if (showDoubleTapOverlay) {
+        doubleTapOverlayData?.let { (_, isForward, label) ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 64.dp),
-                contentAlignment = if (doubleTapForward) Alignment.CenterEnd else Alignment.CenterStart
+                contentAlignment = if (isForward) Alignment.CenterEnd else Alignment.CenterStart
             ) {
-                SeekCircleIndicator(label = doubleTapLabel, isForward = doubleTapForward)
+                SeekCircleIndicator(label = label, isForward = isForward)
             }
         }
-        if (showHSeekOverlay) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                HorizontalSeekIndicator(currentTimeLabel = hSeekCurrentLabel, deltaLabel = hSeekDeltaLabel)
+        hSeekOverlayData?.let { (currentLabel, deltaLabel) ->
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                HorizontalSeekIndicator(currentTimeLabel = currentLabel, deltaLabel = deltaLabel)
             }
         }
-        if (showSpeedOverlay) {
+        speedOverlayVal?.let { speed ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = 48.dp),
                 contentAlignment = Alignment.TopCenter
             ) {
-                SpeedIndicator(label = "${speedValue}× Speed")
+                SpeedIndicator(label = "${speed}× Speed")
             }
         }
-        if (showVolOverlay) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                VolumeIndicator(percentage = volPercentageDisplay)
+        volumeOverlayPct?.let { pct ->
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                VolumeIndicator(percentage = pct)
             }
         }
-        if (showBrightOverlay) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                BrightnessIndicator(brightness = brightPercentageDisplay / 100f)
+        brightnessOverlayPct?.let { pct ->
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                BrightnessIndicator(brightness = pct / 100f)
             }
         }
-        if (showZoomOverlay) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
+        if (zoomOverlayShown) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 PinchZoomIndicator(zoom = localZoomLog2)
             }
         }
