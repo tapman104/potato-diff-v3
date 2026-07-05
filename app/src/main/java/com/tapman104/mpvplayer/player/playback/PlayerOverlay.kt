@@ -220,11 +220,14 @@ fun PlayerOverlay(
         }
 
         if (showDecodeModeDialog) {
+            LaunchedEffect(Unit) {
+                onPause()
+            }
             DecodeModePicker(
                 current = playerState.decodeMode,
                 onSelect = { mode ->
-                    onPause()
                     onCycleDecodeMode(mode)
+                    showDecodeModeDialog = false
                 },
                 onDismiss = { showDecodeModeDialog = false }
             )
