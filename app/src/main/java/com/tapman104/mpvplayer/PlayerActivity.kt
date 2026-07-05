@@ -25,12 +25,14 @@ import com.tapman104.mpvplayer.util.UriResolver
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
+import com.tapman104.mpvplayer.core.engine.MpvController
 
 
 class PlayerActivity : ComponentActivity() {
 
+    private val mpvController by lazy { MpvController(applicationContext) }
     private val viewModel: PlayerViewModel by viewModels {
-        PlayerViewModelFactory(this)
+        PlayerViewModelFactory.create(application, mpvController)
     }
 
     private lateinit var surfaceView: SurfaceView

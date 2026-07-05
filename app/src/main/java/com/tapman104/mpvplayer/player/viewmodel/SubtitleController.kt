@@ -15,9 +15,8 @@ import com.tapman104.mpvplayer.player.state.SubtitleAppearanceState
 
 class SubtitleController(
     private val executor: MpvCommandExecutor,
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val coroutineScope: CoroutineScope,
-    private val onPlayerStateUpdate: (subtitleSize: Float, subtitlePosition: Float) -> Unit
+    private val preferencesRepository: UserPreferencesRepository,
+    private val scope: CoroutineScope,
 ) {
 
     private val _subtitleAppearance = MutableStateFlow(SubtitleAppearanceState())
@@ -27,19 +26,18 @@ class SubtitleController(
     val preferredSubtitleLang: StateFlow<String> = _preferredSubtitleLang.asStateFlow()
 
     init {
-        coroutineScope.launch {
-            userPreferencesRepository.subtitleLanguage.collect {
+        scope.launch {
+            preferencesRepository.subtitleLanguage.collect {
                 _preferredSubtitleLang.value = it
             }
         }
 
-        coroutineScope.launch {
+        scope.launch {
             combine(
-                userPreferencesRepository.subtitleSize,
-                userPreferencesRepository.subtitlePosition
+                preferencesRepository.subtitleSize,
+                preferencesRepository.subtitlePosition
             ) { size, position -> Pair(size, position) }
                 .collect { (size, position) ->
-                    onPlayerStateUpdate(size, position)
                     executor.setSubtitleAppearance(size, position)
                 }
         }
@@ -92,24 +90,25 @@ class SubtitleController(
     }
 
     fun setSubtitleAppearance(size: Float, position: Float) {
-        onPlayerStateUpdate(size, position)
         executor.setSubtitleAppearance(size, position)
-        coroutineScope.launch {
-            userPreferencesRepository.setSubtitleSize(size)
-            userPreferencesRepository.setSubtitlePosition(position)
+        scope.launch {
+            preferencesRepository.setSubtitleSize(size)
+            preferencesRepository.setSubtitlePosition(position)
         }
     }
 
     fun resetSubtitleAppearance() {
         val size = UserPreferencesRepository.DEFAULT_SUBTITLE_SIZE
         val position = UserPreferencesRepository.DEFAULT_SUBTITLE_POSITION
-        onPlayerStateUpdate(size, position)
         executor.setSubtitleAppearance(size, position)
-        coroutineScope.launch {
-            userPreferencesRepository.setSubtitleSize(size)
-            userPreferencesRepository.setSubtitlePosition(position)
+        scope.launch {
+            preferencesRepository.setSubtitleSize(size)
+            preferencesRepository.setSubtitlePosition(position)
         }
     }
+
+    fun setSubtitleTrack(id: Int) = executor.setSubtitleTrack(id)
+    fun addSubtitle(uri: String) = executor.addSubtitle(uri)
 
     fun autoSelectSubtitle(tracks: List<SubtitleTrack>) {
         val lang = _preferredSubtitleLang.value
@@ -120,20 +119,20 @@ class SubtitleController(
     }
 
     fun setPreferredSubtitleLanguage(lang: String) {
-        coroutineScope.launch {
-            userPreferencesRepository.setSubtitleLanguage(lang)
+        scope.launch {
+            preferencesRepository.setSubtitleLanguage(lang)
         }
     }
 
     fun setSubtitleSize(size: Float) {
-        coroutineScope.launch {
-            userPreferencesRepository.setSubtitleSize(size)
+        scope.launch {
+            preferencesRepository.setSubtitleSize(size)
         }
     }
 
     fun setSubtitlePosition(position: Float) {
-        coroutineScope.launch {
-            userPreferencesRepository.setSubtitlePosition(position)
+        scope.launch {
+            preferencesRepository.setSubtitlePosition(position)
         }
     }
 }

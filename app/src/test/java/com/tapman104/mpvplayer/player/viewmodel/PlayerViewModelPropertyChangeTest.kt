@@ -1,6 +1,5 @@
 package com.tapman104.mpvplayer.player.viewmodel
 
-import com.tapman104.mpvplayer.core.engine.MpvConstants
 import com.tapman104.mpvplayer.player.model.DecodeMode
 import com.tapman104.mpvplayer.player.state.PlayerState
 import org.junit.Assert.assertEquals
@@ -12,23 +11,23 @@ class PropertyChangeMapper {
 
     fun onPropertyChange(name: String, value: Any?) {
         when (name) {
-            MpvConstants.PROP_PAUSE -> {
+            "pause" -> {
                 val paused = value as? Boolean ?: return
-                state = state.copy(isPlaying = !paused)
+                state = state.copy(isPaused = paused)
             }
-            MpvConstants.PROP_TIME_POS -> {
+            "time-pos" -> {
                 val seconds = value as? Double ?: return
-                state = state.copy(currentPositionMs = (seconds * 1000).toLong())
+                state = state.copy(positionSec = seconds)
             }
-            MpvConstants.PROP_DURATION -> {
+            "duration" -> {
                 val seconds = value as? Double ?: return
-                state = state.copy(durationMs = (seconds * 1000).toLong())
+                state = state.copy(durationSec = seconds)
             }
-            MpvConstants.PROP_SPEED -> {
+            "speed" -> {
                 val speed = value as? Double ?: return
-                state = state.copy(speed = speed.toFloat())
+                state = state.copy(playbackSpeed = speed)
             }
-            MpvConstants.PROP_HWDEC -> {
+            "hwdec" -> {
                 val hwdec = value as? String ?: return
                 val mode = when (hwdec) {
                     DecodeMode.HWPlus.mpvValue -> DecodeMode.HWPlus
@@ -39,7 +38,7 @@ class PropertyChangeMapper {
                     state = state.copy(decodeMode = mode)
                 }
             }
-            MpvConstants.PROP_VOLUME -> {
+            "volume" -> {
                 val volume = value as? Double ?: return
                 state = state.copy(volume = volume.toInt())
             }
@@ -52,63 +51,63 @@ class PlayerViewModelPropertyChangeTest {
     @Test
     fun prop_pause_true_maps_to_is_playing_false() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_PAUSE, true)
+        mapper.onPropertyChange("pause", true)
         assertEquals(false, mapper.state.isPlaying)
     }
 
     @Test
     fun prop_pause_false_maps_to_is_playing_true() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_PAUSE, false)
+        mapper.onPropertyChange("pause", false)
         assertEquals(true, mapper.state.isPlaying)
     }
 
     @Test
     fun prop_duration_maps_to_duration_ms() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_DURATION, 90.0)
+        mapper.onPropertyChange("duration", 90.0)
         assertEquals(90000L, mapper.state.durationMs)
     }
 
     @Test
     fun prop_time_pos_maps_to_current_position_ms() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_TIME_POS, 30.5)
+        mapper.onPropertyChange("time-pos", 30.5)
         assertEquals(30500L, mapper.state.currentPositionMs)
     }
 
     @Test
     fun prop_hwdec_mediacodec_maps_to_hw_decode_mode() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_HWDEC, "mediacodec")
+        mapper.onPropertyChange("hwdec", "mediacodec")
         assertEquals(DecodeMode.HW, mapper.state.decodeMode)
     }
 
     @Test
     fun prop_hwdec_mediacodec_copy_maps_to_hw_plus_decode_mode() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_HWDEC, "mediacodec-copy")
+        mapper.onPropertyChange("hwdec", "mediacodec-copy")
         assertEquals(DecodeMode.HWPlus, mapper.state.decodeMode)
     }
 
     @Test
     fun prop_hwdec_no_maps_to_sw_decode_mode() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_HWDEC, "no")
+        mapper.onPropertyChange("hwdec", "no")
         assertEquals(DecodeMode.SW, mapper.state.decodeMode)
     }
 
     @Test
     fun prop_speed_maps_to_speed_float() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_SPEED, 2.0)
+        mapper.onPropertyChange("speed", 2.0)
         assertEquals(2.0f, mapper.state.speed)
     }
 
     @Test
     fun prop_volume_maps_to_volume_int() {
         val mapper = PropertyChangeMapper()
-        mapper.onPropertyChange(MpvConstants.PROP_VOLUME, 75.0)
+        mapper.onPropertyChange("volume", 75.0)
         assertEquals(75, mapper.state.volume)
     }
 }
