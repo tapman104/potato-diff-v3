@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
 import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
+import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.controls.PlayerTopBar
 import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
 import com.tapman104.mpvplayer.player.controls.PlayerQuickActions
@@ -45,6 +46,7 @@ fun PlayerOverlay(
     onSubtitleTrackSelected: (Int) -> Unit,
     onDisableSubtitles: () -> Unit,
     onAddSubtitleClick: () -> Unit,
+    onPause: () -> Unit,
     onCycleDecodeMode: (DecodeMode) -> Unit,
     onMoreOptions: () -> Unit,
     onSubtitleSizeChange: (Float) -> Unit,
@@ -58,6 +60,7 @@ fun PlayerOverlay(
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var showSubtitleAppearanceDialog by remember { mutableStateOf(false) }
+    var showDecodeModeDialog by remember { mutableStateOf(false) }
     // Tracks the gesture scrub target in real-time; -1L when not scrubbing.
     // Used to update the bottom seek bar without waiting for the 200ms-throttled playerState.
     var gestureSeekPreviewMs by remember { mutableStateOf(-1L) }
@@ -69,8 +72,8 @@ fun PlayerOverlay(
         mutableIntStateOf(if (max > 0) (current.toFloat() / max * 100).toInt() else 0)
     }
 
-    LaunchedEffect(controlsVisible, showAudioDialog, showSubtitleDialog, showSubtitleAppearanceDialog) {
-        if (controlsVisible && !showAudioDialog && !showSubtitleDialog && !showSubtitleAppearanceDialog) {
+    LaunchedEffect(controlsVisible, showAudioDialog, showSubtitleDialog, showSubtitleAppearanceDialog, showDecodeModeDialog) {
+        if (controlsVisible && !showAudioDialog && !showSubtitleDialog && !showSubtitleAppearanceDialog && !showDecodeModeDialog) {
             delay(3000L)
             controlsVisible = false
         }
@@ -129,15 +132,7 @@ fun PlayerOverlay(
                 decodeMode = playerState.decodeMode,
                 onSelectAudioTrack = { showAudioDialog = true },
                 onSelectSubtitleTrack = { showSubtitleDialog = true },
-                onCycleDecodeMode = {
-                    onCycleDecodeMode(
-                        when (playerState.decodeMode) {
-                            DecodeMode.HW     -> DecodeMode.HWPlus
-                            DecodeMode.HWPlus -> DecodeMode.SW
-                            DecodeMode.SW     -> DecodeMode.HW
-                        }
-                    )
-                },
+                onDecodeModeClick = { showDecodeModeDialog = true },
                 onMoreOptions = onMoreOptions
             )
         }
@@ -221,6 +216,17 @@ fun PlayerOverlay(
                 },
                 onDismiss = { showSubtitleAppearanceDialog = false },
                 onReset = { onSubtitleAppearanceReset() }
+            )
+        }
+
+        if (showDecodeModeDialog) {
+            DecodeModePicker(
+                current = playerState.decodeMode,
+                onSelect = { mode ->
+                    onPause()
+                    onCycleDecodeMode(mode)
+                },
+                onDismiss = { showDecodeModeDialog = false }
             )
         }
     }

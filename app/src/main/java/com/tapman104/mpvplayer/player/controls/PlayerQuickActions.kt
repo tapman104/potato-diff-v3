@@ -28,7 +28,7 @@ fun PlayerQuickActions(
     decodeMode: DecodeMode,
     onSelectAudioTrack: () -> Unit,
     onSelectSubtitleTrack: () -> Unit,
-    onCycleDecodeMode: () -> Unit,
+    onDecodeModeClick: () -> Unit,
     onMoreOptions: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(true) }
@@ -92,7 +92,7 @@ fun PlayerQuickActions(
                 }
 
                 OutlinedIconButton(
-                    onClick = onCycleDecodeMode,
+                    onClick = onDecodeModeClick,
                     modifier = Modifier.size(48.dp).glassButton(),
                     colors = buttonColors,
                     border = buttonBorder
