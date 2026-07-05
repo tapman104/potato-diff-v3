@@ -1,0 +1,18 @@
+package com.tapman104.mpvplayer.core.database
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+
+@Dao
+interface ResumePositionDao {
+    @Query("SELECT * FROM resume_positions WHERE filePath = :filePath LIMIT 1")
+    suspend fun getPosition(filePath: String): ResumePositionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun savePosition(entity: ResumePositionEntity)
+
+    @Query("DELETE FROM resume_positions WHERE filePath = :filePath")
+    suspend fun deletePosition(filePath: String)
+}

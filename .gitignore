@@ -1,0 +1,8 @@
+/build
+/.gradle
+/.kotlin
+/local.properties
+/*.hprof
+/temp_aar
+/gradle-8.7-bin.zip
+/gradle-8.7/
