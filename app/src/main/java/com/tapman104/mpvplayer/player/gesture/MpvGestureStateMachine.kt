@@ -764,6 +764,8 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     }
 
     fun onMultiTapUiHideTimeout(expectedLastTapTimeMs: Long) {
+        val state = currentState as? GestureState.MultiTapSeeking ?: return
+        if (state.lastTapTimeMs != expectedLastTapTimeMs) return
         controller.hideDoubleTapSeekOverlay()
     }
 
