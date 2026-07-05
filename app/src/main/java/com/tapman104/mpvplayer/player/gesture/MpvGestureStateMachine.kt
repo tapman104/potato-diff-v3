@@ -120,7 +120,8 @@ sealed class GestureState {
         val prevMidpointX: Float,
         val prevMidpointY: Float,
         val panX: Float,
-        val panY: Float
+        val panY: Float,
+        val lastReportedZoomPct: Int = -1
     ) : GestureState()
 
     data class SinglePan(
@@ -565,7 +566,6 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
 
             val clampedVolume = max(0f, min(newVolume, boostMax))
             controller.setVolume(clampedVolume)
-            controller.showVolumeOverlay(clampedVolume.roundToInt())
 
             if (newBoostRegime != state.isBoostRegime || newAnchorY != state.anchorY) {
                 transitionTo(
@@ -584,7 +584,6 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
             val rawOffset = -deltaY * BRIGHTNESS_SENSITIVITY_PER_PX
             val newBrightness = max(0f, min(state.initialValue + rawOffset, 1.0f))
             controller.setBrightness(newBrightness)
-            controller.showBrightnessOverlay((newBrightness * 100f).roundToInt())
             transitionTo(state.copy(currentY = currentY, currentValue = newBrightness))
         }
     }
@@ -596,7 +595,11 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
 
         var newLastSeekIssuedAtMs = state.lastSeekIssuedAtMs
         val deltaXSinceLastSeek = abs(currentX - state.currentX)
-        val throttleMs = if (deltaXSinceLastSeek > 20f) 16L else 24L
+        val throttleMs = when {
+            deltaXSinceLastSeek > 40f -> 16L
+            deltaXSinceLastSeek > 10f -> 24L
+            else -> 48L
+        }
         if (timeMs - state.lastSeekIssuedAtMs >= throttleMs) {
             controller.seekGesture(targetMs)
             newLastSeekIssuedAtMs = timeMs
@@ -670,7 +673,9 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
 
         controller.setZoomAndPan(newZoomLog2, clampedPanX, clampedPanY)
         val percentage = (scale * 100f).roundToInt()
-        controller.showPinchZoomOverlay(percentage)
+        if (percentage != state.lastReportedZoomPct) {
+            controller.showPinchZoomOverlay(percentage)
+        }
 
         transitionTo(
             state.copy(
@@ -679,7 +684,8 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 prevMidpointX = midpointX,
                 prevMidpointY = midpointY,
                 panX = clampedPanX,
-                panY = clampedPanY
+                panY = clampedPanY,
+                lastReportedZoomPct = percentage
             )
         )
     }

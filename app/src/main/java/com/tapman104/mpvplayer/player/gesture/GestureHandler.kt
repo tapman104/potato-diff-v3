@@ -78,8 +78,6 @@ fun GestureHandler(
     var brightnessOverlayPct by remember { mutableStateOf<Int?>(null) }
     var zoomOverlayShown by remember { mutableStateOf(false) }
 
-    var gestureSeekPreviewMs by remember { mutableStateOf(-1L) }
-
     LaunchedEffect(currentZoom) {
         localZoomLog2 = currentZoom
     }
@@ -164,7 +162,6 @@ fun GestureHandler(
 
             override fun showHorizontalSeekOverlay(currentTimeLabel: String, deltaLabel: String, targetPositionMs: Long) {
                 hSeekOverlayData = currentTimeLabel to deltaLabel
-                gestureSeekPreviewMs = targetPositionMs
                 onSeekPreviewMs(targetPositionMs)
             }
 
@@ -173,12 +170,10 @@ fun GestureHandler(
                     coroutineScope.launch {
                         delay(delayMs)
                         hSeekOverlayData = null
-                        gestureSeekPreviewMs = -1L
                         onSeekPreviewMs(-1L)
                     }
                 } else {
                     hSeekOverlayData = null
-                    gestureSeekPreviewMs = -1L
                     onSeekPreviewMs(-1L)
                 }
             }
@@ -232,14 +227,14 @@ fun GestureHandler(
         }
     }
 
-    val stateMachine = remember(controller) { MpvGestureStateMachine(controller) }
+    val stateMachine = remember { MpvGestureStateMachine(controller) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged {
-                if (it.width > 0) screenWidthPx = it.width.toFloat()
-                if (it.height > 0) screenHeightPx = it.height.toFloat()
+                if (it.width > 0 && it.width.toFloat() != screenWidthPx) screenWidthPx = it.width.toFloat()
+                if (it.height > 0 && it.height.toFloat() != screenHeightPx) screenHeightPx = it.height.toFloat()
             }
             .pointerInput(stateMachine) {
                 awaitEachGesture {
