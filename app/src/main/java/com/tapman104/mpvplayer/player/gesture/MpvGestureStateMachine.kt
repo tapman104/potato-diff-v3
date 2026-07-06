@@ -613,7 +613,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         if (state.downTimeMs != expectedDownTimeMs || state.exceededTapThreshold) return
 
         val initialSpeed = controller.playbackSpeed
-        val targetSpeed = if (initialSpeed >= 1.0f) initialSpeed * 2.0f else 2.0f
+        val targetSpeed = (initialSpeed * 2.0f).coerceAtLeast(2.0f)
         val longPressState = GestureState.LongPress(
             startX = state.downX,
             downTimeMs = state.downTimeMs,

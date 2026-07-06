@@ -1,3 +1,4 @@
+
 package com.tapman104.mpvplayer.player.gesture
 
 import org.junit.Assert.assertEquals
