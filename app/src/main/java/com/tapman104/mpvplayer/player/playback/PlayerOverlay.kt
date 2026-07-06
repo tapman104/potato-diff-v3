@@ -227,12 +227,13 @@ fun PlayerOverlay(
                 current = playerState.decodeMode,
                 onSelect = { mode ->
                     onCycleDecodeMode(mode)
+                    // onCycleDecodeMode does not internally resume playback; resume here.
                     onTogglePlay()
                     showDecodeModeDialog = false
                 },
                 onDismiss = {
                     showDecodeModeDialog = false
-                    onTogglePlay()
+                    onTogglePlay()  // Player was explicitly paused; resume it.
                 }
             )
         }
