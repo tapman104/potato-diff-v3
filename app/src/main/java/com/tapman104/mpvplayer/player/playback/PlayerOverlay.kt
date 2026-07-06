@@ -227,9 +227,13 @@ fun PlayerOverlay(
                 current = playerState.decodeMode,
                 onSelect = { mode ->
                     onCycleDecodeMode(mode)
+                    onTogglePlay()
                     showDecodeModeDialog = false
                 },
-                onDismiss = { showDecodeModeDialog = false }
+                onDismiss = {
+                    showDecodeModeDialog = false
+                    onTogglePlay()
+                }
             )
         }
     }
