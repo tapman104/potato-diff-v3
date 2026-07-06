@@ -34,6 +34,7 @@ class TrackDelegate(private val propName: String) {
 
 class MpvCommandExecutor {
     private val TAG = "MpvCommandExecutor"
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "mpv-engine-thread")
     }
@@ -237,7 +238,7 @@ class MpvCommandExecutor {
 
             val result = if (aspect == null || aspect <= 0.001) null
                          else if (rotate % 180 == 90) 1.0 / aspect else aspect
-            onResult(result)
+            mainHandler.post { onResult(result) }
         }
     }
 

@@ -14,7 +14,9 @@ object TrackListParser {
                 val type = node.get("type")?.asString() ?: continue
                 if (type == "audio") {
                     val id = node.get("id")?.asInt()?.toInt() ?: continue
-                    val title = node.get("title")?.asString() ?: node.get("codec")?.asString() ?: "Audio Track $id"
+                    val title = node.get("title")?.asString()?.takeIf { it.isNotBlank() }
+                        ?: node.get("codec")?.asString()?.takeIf { it.isNotBlank() }
+                        ?: "Audio Track $id"
                     val lang = node.get("lang")?.asString() ?: "unknown"
                     val selected = node.get("selected")?.asBoolean() ?: false
                     list.add(AudioTrack(id = id, title = title, lang = lang, isSelected = selected))
@@ -34,7 +36,9 @@ object TrackListParser {
                 val type = node.get("type")?.asString() ?: continue
                 if (type == "sub") {
                     val id = node.get("id")?.asInt()?.toInt() ?: continue
-                    val title = node.get("title")?.asString() ?: node.get("codec")?.asString() ?: "Subtitle Track $id"
+                    val title = node.get("title")?.asString()?.takeIf { it.isNotBlank() }
+                        ?: node.get("codec")?.asString()?.takeIf { it.isNotBlank() }
+                        ?: "Subtitle Track $id"
                     val lang = node.get("lang")?.asString() ?: "unknown"
                     val selected = node.get("selected")?.asBoolean() ?: false
                     list.add(SubtitleTrack(id = id, title = title, lang = lang, isSelected = selected))
