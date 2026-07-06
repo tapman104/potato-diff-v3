@@ -226,9 +226,7 @@ fun PlayerOverlay(
             DecodeModePicker(
                 current = playerState.decodeMode,
                 onSelect = { mode ->
-                    onCycleDecodeMode(mode)
-                    // onCycleDecodeMode does not internally resume playback; resume here.
-                    onTogglePlay()
+                    onCycleDecodeMode(mode)   // fires setHwdec + resume atomically after 150 ms
                     showDecodeModeDialog = false
                 },
                 onDismiss = {

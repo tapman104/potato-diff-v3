@@ -236,7 +236,7 @@ class PlayerViewModel(
         cycleDecodeMode(mode)
     }
 
-    fun cycleDecodeMode(next: DecodeMode) {
+    fun cycleDecodeMode(next: DecodeMode, resumeAfter: Boolean = false) {
         val mpvMode = when (next) {
             DecodeMode.HW     -> "mediacodec"
             DecodeMode.HWPlus -> "mediacodec-copy"
@@ -245,6 +245,7 @@ class PlayerViewModel(
         viewModelScope.launch {
             delay(150)
             mpvController.executor.setHwdec(mpvMode)
+            if (resumeAfter) mpvController.executor.resume()
         }
     }
 

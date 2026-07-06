@@ -193,7 +193,7 @@ class PlayerActivity : ComponentActivity() {
                             arrayOf("application/x-subrip", "text/x-ass", "text/vtt", "application/octet-stream", "*/*")
                         )
                     },
-                    onCycleDecodeMode = { newMode -> viewModel.cycleDecodeMode(newMode) },
+                    onCycleDecodeMode = { newMode -> viewModel.cycleDecodeMode(newMode, resumeAfter = true) },
                     onPause = viewModel::pausePlayback,
                     onMoreOptions = { showSettings = true },
                     onSubtitleSizeChange = { viewModel.setSubtitleSize(it) },

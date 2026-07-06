@@ -90,6 +90,12 @@ class MpvCommandExecutor {
         }
     }
 
+    fun resume() {
+        execute {
+            MPVLib.setPropertyBoolean(MpvProp.PAUSE, false)
+        }
+    }
+
     fun togglePlay() {
         execute {
             val paused = MPVLib.getPropertyBoolean(MpvProp.PAUSE) ?: false
