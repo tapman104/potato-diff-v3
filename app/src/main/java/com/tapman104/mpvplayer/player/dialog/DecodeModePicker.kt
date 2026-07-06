@@ -56,7 +56,6 @@ fun DecodeModePicker(
                     OutlinedCard(
                         onClick = {
                             onSelect(entry.mode)
-                            onDismiss()
                         },
                         shape = RoundedCornerShape(10.dp),
                         border = CardDefaults.outlinedCardBorder().let {
