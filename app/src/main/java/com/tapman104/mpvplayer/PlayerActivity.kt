@@ -110,6 +110,7 @@ class PlayerActivity : ComponentActivity() {
 
                 var pendingResumeMs by remember { mutableStateOf(0L) }
                 var preOverrideSpeed by remember { mutableFloatStateOf(1f) }
+                var isSpeedOverridden by remember { mutableStateOf(false) }
                 var showSettings by remember { mutableStateOf(false) }
 
                 val initialBrightness = remember {
@@ -178,10 +179,14 @@ class PlayerActivity : ComponentActivity() {
                     onSeekForward  = { offsetMs -> viewModel.seekRelative(offsetMs) },
                     onSeekBackward = { offsetMs -> viewModel.seekRelative(-offsetMs) },
                     onSpeedOverride = { speed ->
-                        preOverrideSpeed = currentSpeed
+                        if (!isSpeedOverridden) {
+                            preOverrideSpeed = currentSpeed
+                            isSpeedOverridden = true
+                        }
                         viewModel.setSpeed(speed)
                     },
                     onSpeedRestore = {
+                        isSpeedOverridden = false
                         viewModel.setSpeed(preOverrideSpeed)
                     },
                     onAudioTrackSelected = { viewModel.setAudioTrack(it) },

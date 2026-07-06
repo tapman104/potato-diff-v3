@@ -29,13 +29,17 @@ interface MpvPlayerController {
     val isVolumeSideRight: Boolean
     val doubleTapSeekAreaWidthPercent: Int
     val isDynamicSpeedOverlayEnabled: Boolean
+    val playbackSpeed: Float
 
     fun pause()
     fun unpause()
     fun seekTo(positionMs: Long, precise: Boolean = false)
+    fun seekForward(offsetMs: Long)
+    fun seekBackward(offsetMs: Long)
     fun seekGesture(positionMs: Long)
     fun seekCommit(positionMs: Long)
     fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int = 5, stepDurationMs: Long = 16L)
+    fun restorePlaybackSpeed()
     fun setVolume(volume: Float)
     fun setBrightness(brightness: Float)
     fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float)

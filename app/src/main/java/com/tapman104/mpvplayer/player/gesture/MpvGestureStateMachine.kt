@@ -87,7 +87,12 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                         state.accumulatedSeekSec + stepSeekSec
                     }
 
-                    controller.seekTo(controller.currentPositionMs + (stepSeekSec * 1000L * directionSign), precise = false)
+                    val offsetMs = stepSeekSec * 1000L
+                    if (isForward) {
+                        controller.seekForward(offsetMs)
+                    } else {
+                        controller.seekBackward(offsetMs)
+                    }
 
                     val label = "${if (isForward) "+" else "-"}${newAccumulatedSec}s"
                     controller.showDoubleTapSeekOverlay(newAccumulatedSec, isForward, label)
@@ -123,10 +128,12 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                         val isForward = region == TapRegion.RIGHT
                         val directionSign = if (isForward) 1 else -1
                         val stepSeekSec = MULTI_TAP_SEEK_CURVE_SEC[0]
-                        controller.seekTo(
-                            controller.currentPositionMs + (stepSeekSec * 1000L * directionSign),
-                            precise = false
-                        )
+                        val offsetMs = stepSeekSec * 1000L
+                        if (isForward) {
+                            controller.seekForward(offsetMs)
+                        } else {
+                            controller.seekBackward(offsetMs)
+                        }
                         val label = "${if (isForward) "+" else "-"}${stepSeekSec}s"
                         controller.showDoubleTapSeekOverlay(stepSeekSec, isForward, label)
                         val inactivityJob = controller.scheduleTimer(MULTI_TAP_INACTIVITY_TIMEOUT_MS) {
@@ -264,12 +271,12 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 }
             }
             is GestureState.LongPress -> {
-                controller.setPlaybackSpeedRamped(state.initialSpeed, stepCount = 5, stepDurationMs = 16L)
+                controller.restorePlaybackSpeed()
                 controller.hideSpeedOverlay()
                 transitionTo(GestureState.Idle)
             }
             is GestureState.DynamicSpeedScrub -> {
-                controller.setPlaybackSpeedRamped(state.startSpeed, stepCount = 5, stepDurationMs = 16L)
+                controller.restorePlaybackSpeed()
                 controller.hideSpeedOverlay()
                 transitionTo(GestureState.Idle)
             }
@@ -605,8 +612,8 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val state = currentState as? GestureState.TapCandidate ?: return
         if (state.downTimeMs != expectedDownTimeMs || state.exceededTapThreshold) return
 
-        val initialSpeed = 1.0f
-        val targetSpeed = initialSpeed * 2.0f
+        val initialSpeed = controller.playbackSpeed
+        val targetSpeed = if (initialSpeed >= 1.0f) initialSpeed * 2.0f else 2.0f
         val longPressState = GestureState.LongPress(
             startX = state.downX,
             downTimeMs = state.downTimeMs,
@@ -639,6 +646,9 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     }
 
     private fun transitionTo(newState: GestureState) {
+        if (currentState is GestureState.MultiTapSeeking && newState !is GestureState.MultiTapSeeking) {
+            controller.hideDoubleTapSeekOverlay()
+        }
         currentState = newState
     }
 

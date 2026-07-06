@@ -85,6 +85,7 @@ fun PlayerOverlay(
             currentPositionMs = { playerState.currentPositionMs },
             durationMs = { playerState.durationMs },
             isPlaying = playerState.isPlaying,
+            currentSpeed = { playerState.speed },
             onSeekPreviewMs = { gestureSeekPreviewMs = it },
             onSeek = onSeek,
             onSeekGesture = onSeekGesture,

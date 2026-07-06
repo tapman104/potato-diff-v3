@@ -324,6 +324,7 @@ class PlayerViewModel(
     override val isVolumeSideRight: Boolean get() = true
     override val doubleTapSeekAreaWidthPercent: Int get() = 30
     override val isDynamicSpeedOverlayEnabled: Boolean get() = true
+    override val playbackSpeed: Float get() = _playerState.value.speed
 
     private fun getScreenBrightness(): Float {
         return try {
@@ -342,6 +343,14 @@ class PlayerViewModel(
         mpvController.executor.play()
     }
 
+    override fun seekForward(offsetMs: Long) {
+        seekRelative(offsetMs)
+    }
+
+    override fun seekBackward(offsetMs: Long) {
+        seekRelative(-offsetMs)
+    }
+
     override fun seekGesture(positionMs: Long) {
         lastSeekTime = System.currentTimeMillis()
         mpvController.executor.seekGesture(positionMs / 1000.0)
@@ -354,6 +363,10 @@ class PlayerViewModel(
 
     override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
         mpvController.executor.setSpeed(targetSpeed.toDouble())
+    }
+
+    override fun restorePlaybackSpeed() {
+        // Handled by PlayerActivity override restoration
     }
 
     override fun setVolume(volume: Float) {

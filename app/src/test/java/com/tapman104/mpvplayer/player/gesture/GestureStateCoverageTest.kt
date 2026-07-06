@@ -111,7 +111,7 @@ class GestureStateCoverageTest {
 
         stateMachine.onPointerUp(1L, 540f, 960f, 700L, 1)
 
-        assertEquals(1.0f, controller.setPlaybackSpeedRampedArgs?.targetSpeed)
+        assertEquals(1, controller.restorePlaybackSpeedCallCount)
         assertEquals(1, controller.hideSpeedOverlayCallCount)
         assertTrue(stateMachine.currentState is GestureState.Idle)
     }

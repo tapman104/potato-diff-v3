@@ -37,11 +37,12 @@ fun GestureHandler(
     currentPositionMs: () -> Long,
     durationMs: () -> Long,
     isPlaying: Boolean,
+    currentSpeed: () -> Float = { 1.0f },
     onSeek: (Long, Boolean) -> Unit = { _, _ -> },
     onSeekGesture: (Long) -> Unit = {},
     onSeekCommit: (Long) -> Unit = {},
-    onSeekForward: (Long) -> Unit,
-    onSeekBackward: (Long) -> Unit,
+    onSeekForward: (Long) -> Unit = {},
+    onSeekBackward: (Long) -> Unit = {},
     onToggleControls: () -> Unit,
     onSpeedOverride: (Float) -> Unit,
     onSpeedRestore: () -> Unit,
@@ -93,8 +94,21 @@ fun GestureHandler(
     val currentPositionMsRef = rememberUpdatedState(currentPositionMs)
     val durationMsRef = rememberUpdatedState(durationMs)
     val isPlayingRef = rememberUpdatedState(isPlaying)
+    val currentSpeedRef = rememberUpdatedState(currentSpeed)
     val screenWidthPxRef = rememberUpdatedState(screenWidthPx)
     val screenHeightPxRef = rememberUpdatedState(screenHeightPx)
+    val onSeekRef = rememberUpdatedState(onSeek)
+    val onSeekGestureRef = rememberUpdatedState(onSeekGesture)
+    val onSeekCommitRef = rememberUpdatedState(onSeekCommit)
+    val onSeekForwardRef = rememberUpdatedState(onSeekForward)
+    val onSeekBackwardRef = rememberUpdatedState(onSeekBackward)
+    val onSpeedOverrideRef = rememberUpdatedState(onSpeedOverride)
+    val onSpeedRestoreRef = rememberUpdatedState(onSpeedRestore)
+    val onZoomChangeRef = rememberUpdatedState(onZoomChange)
+    val onBrightnessChangeRef = rememberUpdatedState(onBrightnessChange)
+    val onVolumeChangeRef = rememberUpdatedState(onVolumeChange)
+    val onSeekPreviewMsRef = rememberUpdatedState(onSeekPreviewMs)
+    val onToggleControlsRef = rememberUpdatedState(onToggleControls)
 
     val controller = remember(audioManager, maxMusicVol) {
         object : MpvPlayerController {
@@ -113,16 +127,23 @@ fun GestureHandler(
             override val isVolumeSideRight: Boolean get() = true
             override val doubleTapSeekAreaWidthPercent: Int get() = 30
             override val isDynamicSpeedOverlayEnabled: Boolean get() = true
+            override val playbackSpeed: Float get() = currentSpeedRef.value()
 
             override fun pause() {}
             override fun unpause() {}
 
-            override fun seekTo(positionMs: Long, precise: Boolean) = onSeek(positionMs, precise)
-            override fun seekGesture(positionMs: Long) = onSeekGesture(positionMs)
-            override fun seekCommit(positionMs: Long) = onSeekCommit(positionMs)
+            override fun seekTo(positionMs: Long, precise: Boolean) = onSeekRef.value(positionMs, precise)
+            override fun seekForward(offsetMs: Long) = onSeekForwardRef.value(offsetMs)
+            override fun seekBackward(offsetMs: Long) = onSeekBackwardRef.value(offsetMs)
+            override fun seekGesture(positionMs: Long) = onSeekGestureRef.value(positionMs)
+            override fun seekCommit(positionMs: Long) = onSeekCommitRef.value(positionMs)
 
             override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
-                if (targetSpeed != 1.0f) onSpeedOverride(targetSpeed) else onSpeedRestore()
+                onSpeedOverrideRef.value(targetSpeed)
+            }
+
+            override fun restorePlaybackSpeed() {
+                onSpeedRestoreRef.value()
             }
 
             override fun setVolume(volume: Float) {
@@ -135,21 +156,21 @@ fun GestureHandler(
                 }
                 val pct = localVolumePercent.roundToInt()
                 volumeOverlayPct = pct
-                onVolumeChange(pct)
+                onVolumeChangeRef.value(pct)
             }
 
             override fun setBrightness(brightness: Float) {
                 localBrightness = brightness.coerceIn(0f, 1f)
                 val pct = (localBrightness * 100).roundToInt()
                 brightnessOverlayPct = pct
-                onBrightnessChange(localBrightness)
+                onBrightnessChangeRef.value(localBrightness)
             }
 
             override fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
                 localZoomLog2 = zoomLog2
                 localPanX = panX
                 localPanY = panY
-                onZoomChange(zoomLog2)
+                onZoomChangeRef.value(zoomLog2)
             }
 
             override fun showDoubleTapSeekOverlay(seekAmountSec: Int, isForward: Boolean, label: String) {
@@ -162,7 +183,7 @@ fun GestureHandler(
 
             override fun showHorizontalSeekOverlay(currentTimeLabel: String, deltaLabel: String, targetPositionMs: Long) {
                 hSeekOverlayData = currentTimeLabel to deltaLabel
-                onSeekPreviewMs(targetPositionMs)
+                onSeekPreviewMsRef.value(targetPositionMs)
             }
 
             override fun hideHorizontalSeekOverlay(delayMs: Long) {
@@ -170,11 +191,11 @@ fun GestureHandler(
                     coroutineScope.launch {
                         delay(delayMs)
                         hSeekOverlayData = null
-                        onSeekPreviewMs(-1L)
+                        onSeekPreviewMsRef.value(-1L)
                     }
                 } else {
                     hSeekOverlayData = null
-                    onSeekPreviewMs(-1L)
+                    onSeekPreviewMsRef.value(-1L)
                 }
             }
 
@@ -223,7 +244,7 @@ fun GestureHandler(
                 (timerId as? Job)?.cancel()
             }
 
-            override fun triggerSingleTapAction() = onToggleControls()
+            override fun triggerSingleTapAction() = onToggleControlsRef.value()
         }
     }
 
@@ -278,15 +299,6 @@ fun GestureHandler(
                                 y = released.position.y,
                                 timeMs = released.uptimeMillis,
                                 activePointerCount = 1
-                            )
-                            stateMachine.onPointerDown(
-                                pointerId = firstPressed.id.value,
-                                x = firstPressed.position.x,
-                                y = firstPressed.position.y,
-                                timeMs = firstPressed.uptimeMillis,
-                                activePointerCount = 1,
-                                panelShown = PanelShown.NONE,
-                                density = density
                             )
                         }
 

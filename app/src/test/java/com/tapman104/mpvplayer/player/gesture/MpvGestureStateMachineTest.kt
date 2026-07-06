@@ -54,6 +54,8 @@ class FakeMpvPlayerController : MpvPlayerController {
     override var isVolumeSideRight: Boolean = true
     override var doubleTapSeekAreaWidthPercent: Int = 30
     override var isDynamicSpeedOverlayEnabled: Boolean = true
+    override var playbackSpeed: Float = 1.0f
+    var restorePlaybackSpeedCallCount = 0
 
     override fun pause() {
         pauseCallCount++
@@ -67,6 +69,14 @@ class FakeMpvPlayerController : MpvPlayerController {
         lastSeekToMs = positionMs
     }
 
+    override fun seekForward(offsetMs: Long) {
+        lastSeekToMs = currentPositionMs + offsetMs
+    }
+
+    override fun seekBackward(offsetMs: Long) {
+        lastSeekToMs = currentPositionMs - offsetMs
+    }
+
     override fun seekGesture(positionMs: Long) {
         lastSeekToMs = positionMs
     }
@@ -78,6 +88,10 @@ class FakeMpvPlayerController : MpvPlayerController {
     override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
         setPlaybackSpeedRampedArgs = PlaybackSpeedRampedArgs(targetSpeed, stepCount, stepDurationMs)
         setPlaybackSpeedRampedCallCount++
+    }
+
+    override fun restorePlaybackSpeed() {
+        restorePlaybackSpeedCallCount++
     }
 
     override fun setVolume(volume: Float) {
