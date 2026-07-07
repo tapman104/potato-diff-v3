@@ -72,7 +72,7 @@ class PlayerViewModel(
         resumePositionManager.attach(viewModelScope) { _playerState.value.durationMs }
         mpvController.dispatcher.addListener(this)
         mpvController.init()
-        mpvController.surface.onSurfaceReady = {
+        mpvController.surface.setSurfaceReadyCallback {
             onSurfaceReady()
         }
         viewModelScope.launch {

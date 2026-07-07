@@ -28,7 +28,11 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
         voInUse = vo
     }
 
-    var onSurfaceReady: (() -> Unit)? = null
+    private var surfaceReadyCallback: (() -> Unit)? = null
+
+    fun setSurfaceReadyCallback(cb: () -> Unit) {
+        surfaceReadyCallback = cb
+    }
 
     fun hasSurface(): Boolean = attachedSurface != null || pendingAttachSurface.get() != null
 
@@ -39,7 +43,7 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
         attachedSurface = surface
         pendingAttachSurface.set(surface)
         val gen = executor.nextSurfaceGeneration()
-        val callback = onSurfaceReady
+        val callback = surfaceReadyCallback
         val vo = voInUse
         executor.execute {
             Log.d(TAG, "attachSurface gen=$gen")
@@ -47,7 +51,7 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
             MPVLib.setOptionString("force-window", "yes")
             // If no file is pending (recovery after lock/recents),
             // re-enable the VO so mpv resumes rendering.
-            // onSurfaceReady will only load a file if pendingFileUri != null.
+            // surfaceReadyCallback will only load a file if pendingFileUri != null.
             MPVLib.setPropertyString("vo", vo)
             pendingAttachSurface.set(null)
             mainHandler.post { callback?.invoke() }
