@@ -2,39 +2,16 @@ package com.tapman104.mpvplayer.core.engine
 
 import `is`.xyz.mpv.KeyMapping
 import `is`.xyz.mpv.MPVLib
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.reflect.KProperty
-
-/**
- * Kotlin property delegate for MPV track-ID properties.
- * Reading returns the current integer ID, or -1 if MPV returns "no" or null.
- * Writing -1 sets the property to "no" (disables the track); any other value sets the int.
- *
- * Usage:
- *   var aid: Int by TrackDelegate(MpvProp.AUDIO_ID)
- *   var sid: Int by TrackDelegate(MpvProp.SUBTITLE_ID)
- *
- * NOTE: MPVLib getters/setters are NOT thread-safe. Only use these delegates
- * from within an executor.execute{} block.
- */
-class TrackDelegate(private val propName: String) {
-    operator fun getValue(thisRef: Any?, property: KProperty<*>): Int =
-        MPVLib.getPropertyString(propName)?.toIntOrNull() ?: -1
-
-    operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Int) {
-        if (value == -1) MPVLib.setPropertyString(propName, "no")
-        else MPVLib.setPropertyInt(propName, value)
-    }
-}
 
 class MpvCommandExecutor {
-    private val TAG = "MpvCommandExecutor"
-    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "mpv-engine-thread")
     }
@@ -47,6 +24,9 @@ class MpvCommandExecutor {
     private val surfaceGeneration = AtomicInteger(0)
     private val pendingSeek = AtomicReference<Double?>(null)
     private val pendingRelativeSeek = AtomicReference<Double?>(null)
+
+    /** Main-thread handler used only by [getVideoAspect] to deliver results. */
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun execute(action: () -> Unit) {
         if (!executor.isShutdown) {
@@ -88,12 +68,6 @@ class MpvCommandExecutor {
     fun pause() {
         execute {
             MPVLib.setPropertyBoolean(MpvProp.PAUSE, true)
-        }
-    }
-
-    fun resume() {
-        execute {
-            MPVLib.setPropertyBoolean(MpvProp.PAUSE, false)
         }
     }
 
@@ -182,9 +156,6 @@ class MpvCommandExecutor {
 
     fun setHwdec(mode: String) {
         execute {
-            // Brief pause before switching decoder to let MPV drain its frame queue.
-            // Without this, setPropertyString triggers a synchronous decoder reinit
-            // while frames are in flight, causing a visible freeze.
             MPVLib.setPropertyString(MpvProp.HWDEC, mode)
         }
     }
@@ -198,6 +169,8 @@ class MpvCommandExecutor {
     fun setSubtitleAppearance(size: Float, position: Float) {
         execute {
             MPVLib.setPropertyDouble("sub-scale", size.toDouble())
+            // sub-pos is measured from the top of the frame (0 = top, 100 = bottom),
+            // so we invert the caller's 0-to-1 bottom-anchored position value.
             MPVLib.setPropertyDouble("sub-pos", (100.0 - (position * 100.0)))
         }
     }
@@ -215,8 +188,7 @@ class MpvCommandExecutor {
 
     /**
      * Reads the corrected display aspect ratio off the executor thread and delivers
-     * the result via [onResult] posted back to the calling context via the provided
-     * handler, or directly on the executor thread if [onResult] is null-safe.
+     * the result via [onResult] posted back to the main thread.
      *
      * Usage from ViewModel (main thread):
      *   executor.getVideoAspect { aspect -> _aspectRatio.value = aspect }
@@ -281,5 +253,9 @@ class MpvCommandExecutor {
 
     fun shutdown() {
         executor.shutdown()
+    }
+
+    companion object {
+        private const val TAG = "MpvCommandExecutor"
     }
 }

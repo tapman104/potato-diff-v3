@@ -6,47 +6,46 @@ import com.tapman104.mpvplayer.player.model.AudioTrack
 import com.tapman104.mpvplayer.player.model.SubtitleTrack
 
 object TrackListParser {
-    fun parseAudioTracks(trackListNode: MPVNode): List<AudioTrack> {
-        val list = ArrayList<AudioTrack>()
-        try {
+
+    fun parseAudioTracks(trackListNode: MPVNode): List<AudioTrack> =
+        parseTracks(trackListNode, type = "audio") { id, title, lang, selected ->
+            AudioTrack(id = id, title = title, lang = lang, isSelected = selected)
+        }
+
+    fun parseSubtitleTracks(trackListNode: MPVNode): List<SubtitleTrack> =
+        parseTracks(trackListNode, type = "sub") { id, title, lang, selected ->
+            SubtitleTrack(id = id, title = title, lang = lang, isSelected = selected)
+        }
+
+    /**
+     * Generic track parser. Iterates [trackListNode] and calls [factory] for every
+     * entry whose "type" field matches [type]. Returns an empty list on any error.
+     */
+    private inline fun <T> parseTracks(
+        trackListNode: MPVNode,
+        type: String,
+        crossinline factory: (id: Int, title: String, lang: String, selected: Boolean) -> T
+    ): List<T> {
+        return try {
             val arr = trackListNode.asArray() ?: return emptyList()
-            for (node in arr) {
-                val type = node.get("type")?.asString() ?: continue
-                if (type == "audio") {
+            buildList {
+                for (node in arr) {
+                    if (node.get("type")?.asString() != type) continue
+                    // asInt() returns Long on most MPVNode implementations; .toInt() is safe for track IDs
                     val id = node.get("id")?.asInt()?.toInt() ?: continue
                     val title = node.get("title")?.asString()?.takeIf { it.isNotBlank() }
                         ?: node.get("codec")?.asString()?.takeIf { it.isNotBlank() }
-                        ?: "Audio Track $id"
+                        ?: "${type.replaceFirstChar { it.uppercaseChar() }} Track $id"
                     val lang = node.get("lang")?.asString() ?: "unknown"
                     val selected = node.get("selected")?.asBoolean() ?: false
-                    list.add(AudioTrack(id = id, title = title, lang = lang, isSelected = selected))
+                    add(factory(id, title, lang, selected))
                 }
             }
         } catch (e: Exception) {
-            Log.e("TrackListParser", "Failed to parse audio tracks", e)
+            Log.e(TAG, "Failed to parse $type tracks", e)
+            emptyList()
         }
-        return list
     }
 
-    fun parseSubtitleTracks(trackListNode: MPVNode): List<SubtitleTrack> {
-        val list = ArrayList<SubtitleTrack>()
-        try {
-            val arr = trackListNode.asArray() ?: return emptyList()
-            for (node in arr) {
-                val type = node.get("type")?.asString() ?: continue
-                if (type == "sub") {
-                    val id = node.get("id")?.asInt()?.toInt() ?: continue
-                    val title = node.get("title")?.asString()?.takeIf { it.isNotBlank() }
-                        ?: node.get("codec")?.asString()?.takeIf { it.isNotBlank() }
-                        ?: "Subtitle Track $id"
-                    val lang = node.get("lang")?.asString() ?: "unknown"
-                    val selected = node.get("selected")?.asBoolean() ?: false
-                    list.add(SubtitleTrack(id = id, title = title, lang = lang, isSelected = selected))
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("TrackListParser", "Failed to parse subtitle tracks", e)
-        }
-        return list
-    }
+    private const val TAG = "TrackListParser"
 }

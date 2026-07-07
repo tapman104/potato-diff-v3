@@ -3,6 +3,7 @@ package com.tapman104.mpvplayer.core.engine
 import `is`.xyz.mpv.MPVLib
 import `is`.xyz.mpv.MPVNode
 import android.util.Log
+import java.util.concurrent.CopyOnWriteArrayList
 
 interface MpvEventListener {
     fun onFileLoaded()
@@ -10,74 +11,56 @@ interface MpvEventListener {
     fun onPlaybackStopped(endReason: Int)
     fun onPropertyChange(name: String, value: Any?)
     fun onError(message: String)
-    /** Called when MPV's VO crashes fatally (e.g. surface destroyed during lock). */
+    /**
+     * Called when MPV's VO crashes fatally (e.g. surface destroyed during lock).
+     * TODO: dispatch this from [MpvEventDispatcher.event] when a suitable MPV
+     *  event or error signal is available (e.g. a VO-reinit failure).
+     */
     fun onVoLost() {}
 }
 
 class MpvEventDispatcher : MPVLib.EventObserver {
-    private val TAG = "MpvEventDispatcher"
-    private val listeners = ArrayList<MpvEventListener>()
+    // CopyOnWriteArrayList is purpose-built for read-heavy, write-rare listener lists:
+    // iteration never blocks and is always safe without an explicit snapshot copy.
+    private val listeners = CopyOnWriteArrayList<MpvEventListener>()
 
     fun addListener(listener: MpvEventListener) {
-        synchronized(listeners) {
-            if (!listeners.contains(listener)) {
-                listeners.add(listener)
-            }
-        }
+        listeners.addIfAbsent(listener)
     }
 
     fun removeListener(listener: MpvEventListener) {
-        synchronized(listeners) {
-            listeners.remove(listener)
-        }
-    }
-
-    private fun snapshot(): List<MpvEventListener> {
-        synchronized(listeners) { return ArrayList(listeners) }
+        listeners.remove(listener)
     }
 
     override fun eventProperty(name: String) {
-        for (listener in snapshot()) {
-            listener.onPropertyChange(name, null)
-        }
+        listeners.forEach { it.onPropertyChange(name, null) }
     }
 
     override fun eventProperty(name: String, value: Long) {
-        for (listener in snapshot()) {
-            listener.onPropertyChange(name, value)
-        }
+        listeners.forEach { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: Boolean) {
-        for (listener in snapshot()) {
-            listener.onPropertyChange(name, value)
-        }
+        listeners.forEach { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: String) {
-        for (listener in snapshot()) {
-            listener.onPropertyChange(name, value)
-        }
+        listeners.forEach { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: Double) {
-        for (listener in snapshot()) {
-            listener.onPropertyChange(name, value)
-        }
+        listeners.forEach { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: MPVNode) {
-        for (listener in snapshot()) {
-            listener.onPropertyChange(name, value)
-        }
+        listeners.forEach { it.onPropertyChange(name, value) }
     }
 
     override fun event(eventId: Int, eventNode: MPVNode) {
         Log.d(TAG, "Received MPV event: $eventId")
-        val copy = snapshot()
         when (eventId) {
-            MpvEvent.FILE_LOADED -> copy.forEach { it.onFileLoaded() }
-            MpvEvent.PLAYBACK_RESTART -> copy.forEach { it.onPlaybackStarted() }
+            MpvEvent.FILE_LOADED      -> listeners.forEach { it.onFileLoaded() }
+            MpvEvent.PLAYBACK_RESTART -> listeners.forEach { it.onPlaybackStarted() }
             MpvEvent.END_FILE -> {
                 val reason = try {
                     eventNode.get("reason")?.asInt()?.toInt() ?: 0
@@ -85,11 +68,13 @@ class MpvEventDispatcher : MPVLib.EventObserver {
                     Log.w(TAG, "Could not parse end-file reason", e)
                     0
                 }
-                copy.forEach { it.onPlaybackStopped(reason) }
+                listeners.forEach { it.onPlaybackStopped(reason) }
             }
-            else -> {
-                // Other events
-            }
+            else -> { /* other events are handled via eventProperty callbacks */ }
         }
+    }
+
+    companion object {
+        private const val TAG = "MpvEventDispatcher"
     }
 }

@@ -95,7 +95,35 @@ class MpvOptionsConfigurator(
     private val context: Context,
     private val onVoConfigured: ((String) -> Unit)? = null
 ) {
-    private val TAG = "MpvOptionsConfigurator"
+    // -----------------------------------------------------------------------
+    // Asset setup
+    // -----------------------------------------------------------------------
+
+    /**
+     * Copies bundled font assets to the app's files directory so MPV can find them
+     * for subtitle rendering. Safe to call multiple times — skips if the file
+     * already exists. Must be called before [initOptions].
+     */
+    fun copyFontAssets() {
+        val fontsDir = java.io.File(context.filesDir, "fonts")
+        if (!fontsDir.exists()) fontsDir.mkdirs()
+
+        val fontFile = java.io.File(fontsDir, "Roboto-Regular.ttf")
+        if (!fontFile.exists()) {
+            try {
+                context.assets.open("Roboto-Regular.ttf").use { input ->
+                    java.io.FileOutputStream(fontFile).use { output -> input.copyTo(output) }
+                }
+                Log.d(TAG, "Copied Roboto-Regular.ttf to fonts directory")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to copy font asset", e)
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Pre-init options
+    // -----------------------------------------------------------------------
 
     /**
      * Configures all pre-init options (general engine, video, subtitles, and audio).
@@ -116,21 +144,19 @@ class MpvOptionsConfigurator(
 
         // Profile and Video Output
         MPVLib.setOptionString("profile", general.profile)
-        if (general.gpuNext && !general.useVulkan) {
-            Log.w(TAG, "gpu-next requires Vulkan; falling back to gpu")
-            MPVLib.setOptionString("vo", "gpu")
-            onVoConfigured?.invoke("gpu")
-        } else {
-            val vo = if (general.gpuNext) "gpu-next" else "gpu"
-            MPVLib.setOptionString("vo", vo)
-            onVoConfigured?.invoke(vo)
+        val vo = when {
+            general.gpuNext && !general.useVulkan -> {
+                // gpu-next requires Vulkan; silently fall back and warn the caller
+                Log.w(TAG, "gpu-next requested without Vulkan — falling back to gpu")
+                "gpu"
+            }
+            general.gpuNext -> "gpu-next"
+            else -> "gpu"
         }
+        MPVLib.setOptionString("vo", vo)
+        onVoConfigured?.invoke(vo)
 
-        if (general.useVulkan) {
-            MPVLib.setOptionString("gpu-context", "androidvk")
-        } else {
-            MPVLib.setOptionString("gpu-context", "android")
-        }
+        MPVLib.setOptionString("gpu-context", if (general.useVulkan) "androidvk" else "android")
 
         // Hardware Decoding fallback order: HW+ (mediacodec) -> HW (mediacodec-copy) -> SW (no)
         MPVLib.setOptionString(
@@ -143,10 +169,11 @@ class MpvOptionsConfigurator(
             MPVLib.setOptionString("vf", "format=yuv420p")
         }
 
-        // Cap demuxer cache for mobile to prevent memory issues
-        val cacheMegs = general.cacheMegs
-        MPVLib.setOptionString("demuxer-max-bytes", "${cacheMegs * 1024 * 1024}")
-        MPVLib.setOptionString("demuxer-max-back-bytes", "${cacheMegs * 1024 * 1024}")
+        // Cap demuxer cache for mobile to prevent memory issues.
+        // cacheMegs * 1024 * 1024 converts MiB to bytes.
+        val cacheBytes = (general.cacheMegs * 1024 * 1024).toString()
+        MPVLib.setOptionString("demuxer-max-bytes", cacheBytes)
+        MPVLib.setOptionString("demuxer-max-back-bytes", cacheBytes)
 
         val logLevel = if (general.verboseLogging) "v" else "warn"
         MPVLib.setOptionString("msg-level", "all=$logLevel")
@@ -205,14 +232,18 @@ class MpvOptionsConfigurator(
         setupAudioOptions(audio)
     }
 
+    // -----------------------------------------------------------------------
+    // Subtitle options
+    // -----------------------------------------------------------------------
+
     /**
      * Configures subtitle track selection, font directory, delay, speed, and ASS styling.
      */
     fun setupSubtitlesOptions(options: SubtitleOptions = SubtitleOptions()) {
         Log.d(TAG, "Configuring subtitle options")
 
-        // Disable MPV's automatic subtitle selection by default
-        // App will handle track selection manually via TrackSelector to respect user choices
+        // Disable MPV's automatic subtitle selection by default.
+        // The app handles track selection manually via TrackSelector to respect user choices.
         val slang = if (options.autoSelectSubtitles) options.preferredSlang else ""
         val subAuto = if (options.autoSelectSubtitles) "exact" else "no"
         val subsFallback = if (options.autoSelectSubtitles) "yes" else "no"
@@ -248,46 +279,9 @@ class MpvOptionsConfigurator(
             MPVLib.setOptionString("secondary-sub-ass-override", "no")
         }
 
-        // Typography and styling for both primary and secondary
-        val fontSize = options.fontSize.toString()
-        val bold = if (options.bold) "yes" else "no"
-        val italic = if (options.italic) "yes" else "no"
-        val justify = options.justify
-        val textColor = options.textColorHexString
-        val backgroundColor = options.backgroundColorHexString
-        val borderColor = options.borderColorHexString
-        val borderSize = options.borderSize.toString()
-        val borderStyle = options.borderStyle
-        val shadowOffset = options.shadowOffset.toString()
-        val subPos = options.subPos.toString()
-        val subScale = options.subScale.toString()
-
-        MPVLib.setOptionString("sub-font-size", fontSize)
-        MPVLib.setOptionString("sub-bold", bold)
-        MPVLib.setOptionString("sub-italic", italic)
-        MPVLib.setOptionString("sub-justify", justify)
-        MPVLib.setOptionString("sub-color", textColor)
-        MPVLib.setOptionString("sub-back-color", backgroundColor)
-        MPVLib.setOptionString("sub-border-color", borderColor)
-        MPVLib.setOptionString("sub-border-size", borderSize)
-        MPVLib.setOptionString("sub-border-style", borderStyle)
-        MPVLib.setOptionString("sub-shadow-offset", shadowOffset)
-        MPVLib.setOptionString("sub-scale", subScale)
-        MPVLib.setOptionString("sub-pos", subPos)
-
-        MPVLib.setOptionString("secondary-sub-font-size", fontSize)
-        MPVLib.setOptionString("secondary-sub-bold", bold)
-        MPVLib.setOptionString("secondary-sub-italic", italic)
-        MPVLib.setOptionString("secondary-sub-justify", justify)
-        MPVLib.setOptionString("secondary-sub-color", textColor)
-        MPVLib.setOptionString("secondary-sub-back-color", backgroundColor)
-        MPVLib.setOptionString("secondary-sub-border-color", borderColor)
-        MPVLib.setOptionString("secondary-sub-border-size", borderSize)
-        MPVLib.setOptionString("secondary-sub-border-style", borderStyle)
-        MPVLib.setOptionString("secondary-sub-shadow-offset", shadowOffset)
-        MPVLib.setOptionString("secondary-sub-scale", subScale)
-        // Position secondary subtitle at top instead of bottom to avoid overlap with primary
-        MPVLib.setOptionString("secondary-sub-pos", options.secondarySubPos.toString())
+        // Apply typography/styling to both primary ("sub") and secondary ("secondary-sub") tracks
+        applySubStyle("sub", options, posOverride = options.subPos)
+        applySubStyle("secondary-sub", options, posOverride = options.secondarySubPos)
 
         val scaleByWindow = if (options.scaleByWindow) "yes" else "no"
         MPVLib.setOptionString("sub-scale-by-window", scaleByWindow)
@@ -297,13 +291,37 @@ class MpvOptionsConfigurator(
     }
 
     /**
+     * Applies the shared typography and styling options to the sub track identified
+     * by [prefix] (either "sub" or "secondary-sub"). [posOverride] lets the caller
+     * supply a different vertical position for primary vs secondary tracks.
+     */
+    private fun applySubStyle(prefix: String, options: SubtitleOptions, posOverride: Int) {
+        MPVLib.setOptionString("$prefix-font-size",     options.fontSize.toString())
+        MPVLib.setOptionString("$prefix-bold",          if (options.bold) "yes" else "no")
+        MPVLib.setOptionString("$prefix-italic",        if (options.italic) "yes" else "no")
+        MPVLib.setOptionString("$prefix-justify",       options.justify)
+        MPVLib.setOptionString("$prefix-color",         options.textColorHexString)
+        MPVLib.setOptionString("$prefix-back-color",    options.backgroundColorHexString)
+        MPVLib.setOptionString("$prefix-border-color",  options.borderColorHexString)
+        MPVLib.setOptionString("$prefix-border-size",   options.borderSize.toString())
+        MPVLib.setOptionString("$prefix-border-style",  options.borderStyle)
+        MPVLib.setOptionString("$prefix-shadow-offset", options.shadowOffset.toString())
+        MPVLib.setOptionString("$prefix-scale",         options.subScale.toString())
+        MPVLib.setOptionString("$prefix-pos",           posOverride.toString())
+    }
+
+    // -----------------------------------------------------------------------
+    // Audio options
+    // -----------------------------------------------------------------------
+
+    /**
      * Configures audio track selection, delay, pitch correction, volume boost, and normalization.
      */
     fun setupAudioOptions(options: AudioOptions = AudioOptions()) {
         Log.d(TAG, "Configuring audio options")
 
-        // Disable MPV's automatic audio selection by default
-        // App will handle track selection manually via TrackSelector to respect user choices
+        // Disable MPV's automatic audio selection by default.
+        // The app handles track selection manually via TrackSelector to respect user choices.
         val alang = if (options.autoSelectAudio) options.preferredAlang else ""
         MPVLib.setOptionString("alang", alang)
         MPVLib.setOptionString("audio-delay", (options.audioDelayMs / 1000.0).toString())
@@ -311,12 +329,12 @@ class MpvOptionsConfigurator(
         MPVLib.setOptionString("volume-max", (options.volumeBoostCap + 100).toString())
 
         // Volume normalization using dynamic audio normalization filter
-        if (options.volumeNormalization) {
-            MPVLib.setOptionString("af", "dynaudnorm")
-        } else {
-            MPVLib.setOptionString("af", "")
-        }
+        MPVLib.setOptionString("af", if (options.volumeNormalization) "dynaudnorm" else "")
     }
+
+    // -----------------------------------------------------------------------
+    // Post-init options
+    // -----------------------------------------------------------------------
 
     /**
      * Configures post-init options such as debanding filters and statistics page overlays.
@@ -328,6 +346,7 @@ class MpvOptionsConfigurator(
         when (options.debandingMode) {
             DebandingMode.NONE -> {
                 MPVLib.setOptionString("deband", "no")
+                // runCatching because @deband may not exist yet if no file has loaded
                 runCatching { MPVLib.command("vf", "remove", "@deband") }
             }
             DebandingMode.CPU -> {
@@ -335,6 +354,7 @@ class MpvOptionsConfigurator(
                 MPVLib.command("vf", "add", "@deband:gradfun=radius=12")
             }
             DebandingMode.GPU -> {
+                // runCatching because @deband may not exist yet if no file has loaded
                 runCatching { MPVLib.command("vf", "remove", "@deband") }
                 MPVLib.setOptionString("deband", "yes")
             }
@@ -344,5 +364,9 @@ class MpvOptionsConfigurator(
             MPVLib.command("script-binding", "stats/display-stats-toggle")
             MPVLib.command("script-binding", "stats/display-page-${options.enabledStatsPage}")
         }
+    }
+
+    companion object {
+        private const val TAG = "MpvOptionsConfigurator"
     }
 }

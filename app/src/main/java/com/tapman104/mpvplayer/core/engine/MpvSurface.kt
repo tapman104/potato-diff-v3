@@ -6,24 +6,23 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.util.Log
 import `is`.xyz.mpv.MPVLib
+import java.util.concurrent.atomic.AtomicReference
 
 class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callback {
-    private val TAG = "MpvSurface"
-    private val mainHandler = Handler(Looper.getMainLooper())
-
     /** The surface that is currently presented to MPV. Written on the main thread only. */
     private var attachedSurface: Surface? = null
 
     /**
-     * Set to the surface being queued for attachment before the executor task runs;
+     * Holds the surface being queued for attachment before the executor task runs;
      * cleared inside the executor task once MPVLib.attachSurface() has returned.
      * Allows surfaceChanged to skip a redundant re-attach when the holder delivers
      * the same surface object we already have in flight.
-     * Volatile so the executor thread's write is visible to the main thread immediately.
+     * AtomicReference ensures the executor thread's write is immediately visible to
+     * the main thread without requiring @Volatile + a separate write barrier.
      */
-    @Volatile private var pendingAttachSurface: Surface? = null
+    private val pendingAttachSurface = AtomicReference<Surface?>(null)
 
-    private var voInUse: String = "gpu"
+    private var voInUse: String = DEFAULT_VO
 
     fun setVo(vo: String) {
         voInUse = vo
@@ -31,14 +30,14 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
 
     var onSurfaceReady: (() -> Unit)? = null
 
-    fun hasSurface(): Boolean = attachedSurface != null || pendingAttachSurface != null
+    fun hasSurface(): Boolean = attachedSurface != null || pendingAttachSurface.get() != null
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         val surface = holder.surface ?: return
         if (!surface.isValid) return
 
         attachedSurface = surface
-        pendingAttachSurface = surface
+        pendingAttachSurface.set(surface)
         val gen = executor.nextSurfaceGeneration()
         val callback = onSurfaceReady
         val vo = voInUse
@@ -50,7 +49,7 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
             // re-enable the VO so mpv resumes rendering.
             // onSurfaceReady will only load a file if pendingFileUri != null.
             MPVLib.setPropertyString("vo", vo)
-            pendingAttachSurface = null
+            pendingAttachSurface.set(null)
             mainHandler.post { callback?.invoke() }
         }
     }
@@ -74,5 +73,11 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
             runCatching { MPVLib.setPropertyString("force-window", "no") }
         }
         executor.detachSurface()
+    }
+
+    companion object {
+        private const val TAG = "MpvSurface"
+        private const val DEFAULT_VO = "gpu"
+        private val mainHandler = Handler(Looper.getMainLooper())
     }
 }

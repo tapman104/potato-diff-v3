@@ -245,7 +245,7 @@ class PlayerViewModel(
         viewModelScope.launch {
             delay(150)
             mpvController.executor.setHwdec(mpvMode)
-            if (resumeAfter) mpvController.executor.resume()
+            if (resumeAfter) mpvController.executor.play()
         }
     }
 
