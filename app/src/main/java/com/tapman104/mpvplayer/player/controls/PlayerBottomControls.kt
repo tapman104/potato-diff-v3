@@ -80,9 +80,9 @@ fun PlayerBottomControls(
                 onValueChangeFinished = {
                     if (isDragging) {
                         onSeek(dragPositionMs)
+                        onSeekPreviewMs(-1L)
                     }
                     isDragging = false
-                    onSeekPreviewMs(-1L)
                 },
                 modifier = Modifier
                     .weight(1f)

@@ -19,7 +19,7 @@ class PlayerViewModelFactory(
         val resumeManager = ResumePositionManager(dao)
         return PlayerViewModel(
             application = application,
-            mpvController = mpvController,
+            controller = mpvController,
             resumePositionManager = resumeManager,
             preferencesRepository = prefsRepo,
         ) as T

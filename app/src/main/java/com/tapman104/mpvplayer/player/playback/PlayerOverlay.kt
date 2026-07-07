@@ -47,6 +47,7 @@ fun PlayerOverlay(
     onDisableSubtitles: () -> Unit,
     onAddSubtitleClick: () -> Unit,
     onPause: () -> Unit,
+    onPlay: () -> Unit,
     onCycleDecodeMode: (DecodeMode) -> Unit,
     onMoreOptions: () -> Unit,
     onSubtitleSizeChange: (Float) -> Unit,
@@ -72,7 +73,9 @@ fun PlayerOverlay(
         mutableIntStateOf(if (max > 0) (current.toFloat() / max * 100).toInt() else 0)
     }
 
-    LaunchedEffect(controlsVisible, showAudioDialog, showSubtitleDialog, showSubtitleAppearanceDialog, showDecodeModeDialog) {
+    // Auto-hide controls after 3 s of inactivity. Dialogs suppress auto-hide via the guard
+    // inside the effect body — they don't need to be keys, as the body rechecks on each resume.
+    LaunchedEffect(controlsVisible) {
         if (controlsVisible && !showAudioDialog && !showSubtitleDialog && !showSubtitleAppearanceDialog && !showDecodeModeDialog) {
             delay(3000L)
             controlsVisible = false
@@ -169,7 +172,7 @@ fun PlayerOverlay(
         if (showAudioDialog) {
             AudioTrackDialog(
                 tracks = playerState.audioTracks,
-                selectedTrackId = playerState.selectedAudioTrackId,
+                selectedTrackId = playerState.currentAudioTrackId,
                 onSelectTrack = {
                     onAudioTrackSelected(it)
                     showAudioDialog = false
@@ -185,7 +188,7 @@ fun PlayerOverlay(
         if (showSubtitleDialog) {
             SubtitleTrackDialog(
                 tracks = playerState.subtitleTracks,
-                selectedTrackId = playerState.selectedSubtitleTrackId,
+                selectedTrackId = playerState.currentSubtitleTrackId,
                 onSelectTrack = {
                     onSubtitleTrackSelected(it)
                     showSubtitleDialog = false
@@ -232,7 +235,7 @@ fun PlayerOverlay(
                 },
                 onDismiss = {
                     showDecodeModeDialog = false
-                    onTogglePlay()  // Player was explicitly paused; resume it.
+                    onPlay()  // Player was explicitly paused; resume it.
                 }
             )
         }

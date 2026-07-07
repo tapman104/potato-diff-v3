@@ -154,7 +154,7 @@ class PlayerActivity : ComponentActivity() {
 
                 LaunchedEffect(playerState.isLoading, pendingResumeMs) {
                     if (!playerState.isLoading && pendingResumeMs > 0L) {
-                        viewModel.seekTo(pendingResumeMs)
+                        viewModel.seekTo(pendingResumeMs, true)
                         pendingResumeMs = 0L
                     }
                 }
@@ -200,6 +200,7 @@ class PlayerActivity : ComponentActivity() {
                     },
                     onCycleDecodeMode = { newMode -> viewModel.cycleDecodeMode(newMode, resumeAfter = true) },
                     onPause = viewModel::pausePlayback,
+                    onPlay = viewModel::play,
                     onMoreOptions = { showSettings = true },
                     onSubtitleSizeChange = { viewModel.setSubtitleSize(it) },
                     onSubtitlePositionChange = { viewModel.setSubtitlePosition(it) },

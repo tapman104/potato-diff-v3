@@ -34,7 +34,4 @@ data class PlayerState(
     val durationMs: Long get() = (durationSec * 1000).toLong()
     val demuxerCacheTimeMs: Long get() = (cachedSec * 1000).toLong()
     val speed: Float get() = playbackSpeed.toFloat()
-    val selectedAudioTrackId: Int get() = currentAudioTrackId
-    val selectedSubtitleTrackId: Int get() = currentSubtitleTrackId
-    val aspectRatio: AspectRatioMode get() = aspectRatioMode
 }

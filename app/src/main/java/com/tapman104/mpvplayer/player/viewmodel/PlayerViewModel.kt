@@ -31,7 +31,7 @@ import `is`.xyz.mpv.Utils
 
 class PlayerViewModel(
     private val application: Application,
-    val mpvController: MpvController,
+    val controller: MpvController,
     private val resumePositionManager: ResumePositionManager,
     val preferencesRepository: UserPreferencesRepository,
 ) : AndroidViewModel(application), MpvEventListener, MpvPlayerController {
@@ -41,20 +41,17 @@ class PlayerViewModel(
     private var lastTimePosUpdate = 0L
     private var lastSeekTime = 0L
 
-    val controller: MpvController get() = mpvController
-    val userPreferencesRepository: UserPreferencesRepository get() = preferencesRepository
-
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
 
     val playlistManager = PlaylistManager(
         context = application,
-        onLoadFile = { path -> mpvController.executor.loadFile(path) },
-        hasSurface = { mpvController.surface.hasSurface() }
+        onLoadFile = { path -> controller.executor.loadFile(path) },
+        hasSurface = { controller.surface.hasSurface() }
     )
 
     private val subtitleController = SubtitleController(
-        executor = mpvController.executor,
+        executor = controller.executor,
         preferencesRepository = preferencesRepository,
         scope = viewModelScope
     )
@@ -70,13 +67,13 @@ class PlayerViewModel(
 
     init {
         resumePositionManager.attach(viewModelScope) { _playerState.value.durationMs }
-        mpvController.dispatcher.addListener(this)
-        mpvController.init()
-        mpvController.surface.setSurfaceReadyCallback {
+        controller.dispatcher.addListener(this)
+        controller.init()
+        controller.surface.setSurfaceReadyCallback {
             onSurfaceReady()
         }
         viewModelScope.launch {
-            when (val result = mpvController.initResult.first()) {
+            when (val result = controller.initResult.first()) {
                 is InitResult.Success -> {
                     preferencesRepository.decodeMode.collect { modeStr ->
                         val mode = when (modeStr) {
@@ -85,7 +82,7 @@ class PlayerViewModel(
                             else -> DecodeMode.HW
                         }
                         if (_playerState.value.decodeMode != mode) {
-                            mpvController.executor.setHwdec(mode.mpvValue)
+                            controller.executor.setHwdec(mode.mpvValue)
                             _playerState.update { it.copy(decodeMode = mode) }
                         }
                     }
@@ -99,51 +96,49 @@ class PlayerViewModel(
     // Playback controls
     // ---------------------------------------------------------------------------
 
-    fun play() = mpvController.executor.play()
-    fun togglePlay() = mpvController.executor.togglePlay()
+    fun play() = controller.executor.play()
+    fun togglePlay() = controller.executor.togglePlay()
     
     override fun seekTo(positionMs: Long, precise: Boolean) {
         lastSeekTime = System.currentTimeMillis()
         if (precise) {
-            mpvController.executor.seekCommit(positionMs / 1000.0)
+            controller.executor.seekCommit(positionMs / 1000.0)
         } else {
-            mpvController.executor.seekGesture(positionMs / 1000.0)
+            controller.executor.seekGesture(positionMs / 1000.0)
         }
     }
-    
-    fun seekTo(positionMs: Long) = seekTo(positionMs, true)
     
     fun onSeekCommitMs(positionMs: Long) {
         lastSeekTime = 0L
         val seconds = positionMs / 1000.0
-        mpvController.executor.seekCommit(seconds)
+        controller.executor.seekCommit(seconds)
     }
     
     fun seekRelative(offsetMs: Long) {
         lastSeekTime = System.currentTimeMillis()
-        mpvController.executor.seekRelativeCoalesced(offsetMs / 1000.0)
+        controller.executor.seekRelativeCoalesced(offsetMs / 1000.0)
     }
     
-    fun setSpeed(speed: Float) = mpvController.executor.setSpeed(speed.toDouble())
-    fun setVolume(volume: Int) = mpvController.executor.setVolume(volume)
+    fun setSpeed(speed: Float) = controller.executor.setSpeed(speed.toDouble())
+    fun setVolume(volume: Int) = controller.executor.setVolume(volume)
     fun setAudioTrack(id: Int) {
-        mpvController.executor.setAudioTrack(id)
+        controller.executor.setAudioTrack(id)
         _playerState.update { it.copy(currentAudioTrackId = id) }
     }
     fun addAudioTrack(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             val path = resolveTrackPath(uri) ?: return@launch
-            mpvController.executor.addAudioTrack(path)
+            controller.executor.addAudioTrack(path)
         }
     }
     fun setSubtitleTrack(id: Int) {
-        mpvController.executor.setSubtitleTrack(id)
+        controller.executor.setSubtitleTrack(id)
         _playerState.update { it.copy(currentSubtitleTrackId = id) }
     }
     fun addSubtitle(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             val path = resolveTrackPath(uri) ?: return@launch
-            mpvController.executor.addSubtitle(path)
+            controller.executor.addSubtitle(path)
         }
     }
 
@@ -172,25 +167,24 @@ class PlayerViewModel(
     fun setAspectRatio(mode: AspectRatioMode) {
         _playerState.update { it.copy(aspectRatioMode = mode) }
         when (mode) {
-            AspectRatioMode.DEFAULT -> mpvController.executor.execute {
+            // DEFAULT and FIT both use container aspect with no panscan. DEFAULT honours the
+            // container's embedded aspect; FIT explicitly forces the same — both are equivalent
+            // for standard content but are kept separate for future divergence (e.g. letterbox
+            // vs. cropped-fit semantics).
+            AspectRatioMode.DEFAULT,
+            AspectRatioMode.FIT -> controller.executor.execute {
                 MPVLib.setPropertyString("video-aspect-override", "no")
                 MPVLib.setPropertyString("video-aspect-mode", "container")
                 MPVLib.setPropertyDouble("panscan", 0.0)
                 MPVLib.setPropertyString("video-unscaled", "no")
             }
-            AspectRatioMode.FIT -> mpvController.executor.execute {
-                MPVLib.setPropertyString("video-aspect-override", "no")
-                MPVLib.setPropertyString("video-aspect-mode", "container")
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-unscaled", "no")
-            }
-            AspectRatioMode.CROP -> mpvController.executor.execute {
+            AspectRatioMode.CROP -> controller.executor.execute {
                 MPVLib.setPropertyString("video-aspect-override", "no")
                 MPVLib.setPropertyString("video-aspect-mode", "container")
                 MPVLib.setPropertyDouble("panscan", 1.0)
                 MPVLib.setPropertyString("video-unscaled", "no")
             }
-            AspectRatioMode.STRETCH -> mpvController.executor.execute {
+            AspectRatioMode.STRETCH -> controller.executor.execute {
                 MPVLib.setPropertyString("video-aspect-override", "no")
                 MPVLib.setPropertyString("video-aspect-mode", "none")
                 MPVLib.setPropertyDouble("panscan", 0.0)
@@ -214,7 +208,7 @@ class PlayerViewModel(
 
     /** Pauses playback immediately — used by screen-off receiver. */
     fun pausePlayback() {
-        mpvController.executor.pause()
+        controller.executor.pause()
         _playerState.update { it.copy(isPaused = true) }
     }
 
@@ -232,9 +226,7 @@ class PlayerViewModel(
     // Decode mode
     // ---------------------------------------------------------------------------
 
-    fun setDecodeMode(mode: DecodeMode) {
-        cycleDecodeMode(mode)
-    }
+    fun setDecodeMode(mode: DecodeMode) = cycleDecodeMode(mode)
 
     fun cycleDecodeMode(next: DecodeMode, resumeAfter: Boolean = false) {
         val mpvMode = when (next) {
@@ -244,8 +236,8 @@ class PlayerViewModel(
         }
         viewModelScope.launch {
             delay(150)
-            mpvController.executor.setHwdec(mpvMode)
-            if (resumeAfter) mpvController.executor.play()
+            controller.executor.setHwdec(mpvMode)
+            if (resumeAfter) controller.executor.play()
         }
     }
 
@@ -254,12 +246,12 @@ class PlayerViewModel(
     // ---------------------------------------------------------------------------
 
     fun setVideoZoom(zoom: Float) {
-        mpvController.executor.setVideoZoom(zoom)
+        controller.executor.setVideoZoom(zoom)
         _playerState.update { it.copy(videoZoom = zoom) }
     }
 
     fun setVideoPan(panX: Float, panY: Float) {
-        mpvController.executor.setVideoPan(panX, panY)
+        controller.executor.setVideoPan(panX, panY)
         _playerState.update { it.copy(videoPanX = panX, videoPanY = panY) }
     }
 
@@ -336,11 +328,11 @@ class PlayerViewModel(
     }
 
     override fun pause() {
-        mpvController.executor.pause()
+        controller.executor.pause()
     }
 
     override fun unpause() {
-        mpvController.executor.play()
+        controller.executor.play()
     }
 
     override fun seekForward(offsetMs: Long) {
@@ -353,16 +345,16 @@ class PlayerViewModel(
 
     override fun seekGesture(positionMs: Long) {
         lastSeekTime = System.currentTimeMillis()
-        mpvController.executor.seekGesture(positionMs / 1000.0)
+        controller.executor.seekGesture(positionMs / 1000.0)
     }
 
     override fun seekCommit(positionMs: Long) {
         lastSeekTime = 0L
-        mpvController.executor.seekCommit(positionMs / 1000.0)
+        controller.executor.seekCommit(positionMs / 1000.0)
     }
 
     override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
-        mpvController.executor.setSpeed(targetSpeed.toDouble())
+        controller.executor.setSpeed(targetSpeed.toDouble())
     }
 
     override fun restorePlaybackSpeed() {
@@ -371,7 +363,7 @@ class PlayerViewModel(
 
     override fun setVolume(volume: Float) {
         val volInt = volume.roundToInt().coerceIn(0, 130)
-        mpvController.executor.setVolume(volInt)
+        controller.executor.setVolume(volInt)
         _playerState.update { it.copy(volume = volInt) }
     }
 
@@ -380,8 +372,8 @@ class PlayerViewModel(
     }
 
     override fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
-        mpvController.executor.setVideoZoom(zoomLog2)
-        mpvController.executor.setVideoPan(panX, panY)
+        controller.executor.setVideoZoom(zoomLog2)
+        controller.executor.setVideoPan(panX, panY)
         _playerState.update { it.copy(videoZoom = zoomLog2, videoPanX = panX, videoPanY = panY) }
     }
 
@@ -417,7 +409,7 @@ class PlayerViewModel(
 
     override fun onPlaybackStopped(endReason: Int) {
         _playerState.update { it.copy(isPaused = true) }
-        if (endReason == 0 && mpvController.surface.hasSurface()) {
+        if (endReason == 0 && controller.surface.hasSurface()) {
             playlistManager.onPlaybackEnded()
         }
     }
@@ -491,8 +483,8 @@ class PlayerViewModel(
     // ---------------------------------------------------------------------------
 
     override fun onCleared() {
-        mpvController.dispatcher.removeListener(this)
-        mpvController.destroy()
+        controller.dispatcher.removeListener(this)
+        controller.destroy()
         super.onCleared()
     }
 }
