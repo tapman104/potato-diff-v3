@@ -455,6 +455,7 @@ class PlayerViewModel(
                 val audioTracks = TrackListParser.parseAudioTracks(node)
                 val subtitleTracks = TrackListParser.parseSubtitleTracks(node)
                 _playerState.update { it.copy(audioTracks = audioTracks, subtitleTracks = subtitleTracks) }
+                autoSelectSubtitle(subtitleTracks)
             }
             "aid" -> {
                 val id = (value as? Long)?.toInt() ?: -1
