@@ -64,7 +64,7 @@ interface MpvPlayerController {
 }
 
 sealed class GestureState {
-    object Idle : GestureState()
+    data object Idle : GestureState()
 
     data class TapCandidate(
         val downX: Float,
@@ -83,8 +83,7 @@ sealed class GestureState {
         val lastTapX: Float,
         val lastTapY: Float,
         val isReverseDirection: Boolean,
-        val inactivityTimerId: Any? = null,
-        val hideUiTimerId: Any? = null
+        val inactivityTimerId: Any? = null
     ) : GestureState()
 
     data class LongPress(
@@ -125,7 +124,8 @@ sealed class GestureState {
         val prevY: Float,
         val panX: Float,
         val panY: Float,
-        val currentScale: Float
+        val currentScale: Float,
+        val zoomLog2: Float
     ) : GestureState()
 
     data class HorizontalSeek(

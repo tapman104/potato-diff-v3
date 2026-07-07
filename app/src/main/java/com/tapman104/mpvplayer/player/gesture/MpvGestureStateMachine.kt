@@ -1,9 +1,11 @@
 package com.tapman104.mpvplayer.player.gesture
 
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.math.sqrt
@@ -27,7 +29,6 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         const val MULTI_TAP_CONTINUATION_WINDOW_MS = 650L
         const val TAP_SPATIAL_SLOP_PX = 100f
         const val MULTI_TAP_INACTIVITY_TIMEOUT_MS = 800L
-        const val MULTI_TAP_UI_HIDE_ADDITIONAL_MS = 100L
         const val LONG_PRESS_HOLD_MS = 500L
         const val DYNAMIC_SPEED_UNLOCK_DX_DP = 10f
         const val BRIGHTNESS_SENSITIVITY_PER_PX = 0.001f
@@ -35,6 +36,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         const val ZOOM_LOG2_MIN = -1.0f
         const val ZOOM_LOG2_MAX = 3.0f
         const val ZOOM_SENSITIVITY_MULTIPLIER = 1.2f
+        const val PAN_SMOOTHING_ALPHA = 0.5f
         val SPEED_PRESETS = floatArrayOf(0.25f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 4.0f)
         val MULTI_TAP_SEEK_CURVE_SEC = intArrayOf(10, 20, 30, 40, 50, 60)
     }
@@ -46,7 +48,10 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         timeMs: Long,
         activePointerCount: Int,
         panelShown: PanelShown,
-        density: Float
+        density: Float,
+        span: Float = 0f,
+        midpointX: Float = x,
+        midpointY: Float = y
     ) {
         val deadZonePx = EDGE_DEAD_ZONE_DP * density
         if (x < deadZonePx || x > controller.screenWidthPx - deadZonePx ||
@@ -56,7 +61,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         }
 
         if (activePointerCount >= 2) {
-            handleMultiPointerArrival(pointerId, x, y, activePointerCount)
+            handleMultiPointerArrival(pointerId, x, y, activePointerCount, span, midpointX, midpointY)
             return
         }
 
@@ -71,50 +76,13 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 val dist = sqrt((x - state.lastTapX) * (x - state.lastTapX) + (y - state.lastTapY) * (y - state.lastTapY))
                 if (elapsed <= MULTI_TAP_CONTINUATION_WINDOW_MS && dist <= TAP_SPATIAL_SLOP_PX && region == state.lastTapRegion) {
                     controller.cancelTimer(state.inactivityTimerId)
-                    controller.cancelTimer(state.hideUiTimerId)
-
-                    val newTapCount = state.tapCount + 1
-                    val curveIndex = min(newTapCount - 1, MULTI_TAP_SEEK_CURVE_SEC.lastIndex)
-                    val stepSeekSec = MULTI_TAP_SEEK_CURVE_SEC[curveIndex]
-
-                    val isForward = region == TapRegion.RIGHT
-                    val directionSign = if (isForward) 1 else -1
-
-                    val wasForward = !state.isReverseDirection
-                    val newAccumulatedSec = if (isForward != wasForward && state.tapCount > 0) {
-                        stepSeekSec
-                    } else {
-                        state.accumulatedSeekSec + stepSeekSec
-                    }
-
-                    val offsetMs = stepSeekSec * 1000L
-                    if (isForward) {
-                        controller.seekForward(offsetMs)
-                    } else {
-                        controller.seekBackward(offsetMs)
-                    }
-
-                    val label = "${if (isForward) "+" else "-"}${newAccumulatedSec}s"
-                    controller.showDoubleTapSeekOverlay(newAccumulatedSec, isForward, label)
-
-                    val inactivityJob = controller.scheduleTimer(MULTI_TAP_INACTIVITY_TIMEOUT_MS) {
-                        onMultiTapInactivityTimeout(timeMs)
-                    }
-                    val hideJob = controller.scheduleTimer(MULTI_TAP_INACTIVITY_TIMEOUT_MS + MULTI_TAP_UI_HIDE_ADDITIONAL_MS) {
-                        onMultiTapUiHideTimeout(timeMs)
-                    }
-
-                    transitionTo(
-                        state.copy(
-                            tapCount = newTapCount,
-                            accumulatedSeekSec = newAccumulatedSec,
-                            lastTapTimeMs = timeMs,
-                            lastTapX = x,
-                            lastTapY = y,
-                            isReverseDirection = !isForward,
-                            inactivityTimerId = inactivityJob,
-                            hideUiTimerId = hideJob
-                        )
+                    applyMultiTapSeek(
+                        state = state,
+                        newTapCount = state.tapCount + 1,
+                        region = region,
+                        timeMs = timeMs,
+                        x = x,
+                        y = y
                     )
                 } else {
                     startTapCandidate(x, y, timeMs)
@@ -125,43 +93,19 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                     controller.cancelTimer(state.deferredTapTimerId)
                     controller.cancelTimer(state.longPressTimerId)
                     if (region != TapRegion.CENTER) {
-                        val isForward = region == TapRegion.RIGHT
-                        val directionSign = if (isForward) 1 else -1
-                        val stepSeekSec = MULTI_TAP_SEEK_CURVE_SEC[0]
-                        val offsetMs = stepSeekSec * 1000L
-                        if (isForward) {
-                            controller.seekForward(offsetMs)
-                        } else {
-                            controller.seekBackward(offsetMs)
-                        }
-                        val label = "${if (isForward) "+" else "-"}${stepSeekSec}s"
-                        controller.showDoubleTapSeekOverlay(stepSeekSec, isForward, label)
-                        val inactivityJob = controller.scheduleTimer(MULTI_TAP_INACTIVITY_TIMEOUT_MS) {
-                            onMultiTapInactivityTimeout(timeMs)
-                        }
-                        val hideJob = controller.scheduleTimer(
-                            MULTI_TAP_INACTIVITY_TIMEOUT_MS + MULTI_TAP_UI_HIDE_ADDITIONAL_MS
-                        ) {
-                            onMultiTapUiHideTimeout(timeMs)
-                        }
-                        transitionTo(
-                            GestureState.MultiTapSeeking(
-                                tapCount = 1,
-                                accumulatedSeekSec = stepSeekSec,
-                                lastTapRegion = region,
-                                lastTapTimeMs = timeMs,
-                                lastTapX = x,
-                                lastTapY = y,
-                                isReverseDirection = !isForward,
-                                inactivityTimerId = inactivityJob,
-                                hideUiTimerId = hideJob
-                            )
+                        applyMultiTapSeek(
+                            state = null,
+                            newTapCount = 1,
+                            region = region,
+                            timeMs = timeMs,
+                            x = x,
+                            y = y
                         )
                     } else {
                         startTapCandidate(x, y, timeMs)
                     }
                 } else {
-                    handleMultiPointerArrival(pointerId, x, y, activePointerCount)
+                    handleMultiPointerArrival(pointerId, x, y, activePointerCount, span, midpointX, midpointY)
                 }
             }
             else -> {}
@@ -297,7 +241,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val absDy = abs(deltaY)
         val elapsedMs = currentTimeMs - candidate.downTimeMs
         val currentZoomLog2 = controller.currentZoomLog2
-        val zoomScale = max(0.5f, Math.pow(2.0, currentZoomLog2.toDouble()).toFloat())
+        val zoomScale = 2.0f.pow(currentZoomLog2).coerceAtLeast(0.5f)
 
         if (zoomScale > 1.0f && (absDx > SINGLE_PAN_MIN_DELTA_PX || absDy > SINGLE_PAN_MIN_DELTA_PX)) {
             return GestureState.SinglePan(
@@ -305,7 +249,8 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 prevY = currentY,
                 panX = controller.currentPanX,
                 panY = controller.currentPanY,
-                currentScale = zoomScale
+                currentScale = zoomScale,
+                zoomLog2 = controller.currentZoomLog2
             )
         }
 
@@ -360,10 +305,11 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         x: Float,
         y: Float,
         activePointerCount: Int,
-        span: Float = 100f,
+        span: Float = 0f,
         midpointX: Float = x,
         midpointY: Float = y
     ) {
+        val effectiveSpan = if (span > 0f) span else 100f
         when (val state = currentState) {
             is GestureState.SinglePan, is GestureState.HorizontalSeek -> {
                 if (state is GestureState.HorizontalSeek) {
@@ -374,7 +320,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 }
                 transitionTo(
                     GestureState.PinchZoomPan(
-                        prevSpan = max(1f, span),
+                        prevSpan = max(1f, effectiveSpan),
                         currentZoomLog2 = controller.currentZoomLog2,
                         prevMidpointX = midpointX,
                         prevMidpointY = midpointY,
@@ -393,7 +339,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 controller.cancelTimer(state.deferredTapTimerId)
                 transitionTo(
                     GestureState.PinchZoomPan(
-                        prevSpan = max(1f, span),
+                        prevSpan = max(1f, effectiveSpan),
                         currentZoomLog2 = controller.currentZoomLog2,
                         prevMidpointX = midpointX,
                         prevMidpointY = midpointY,
@@ -435,7 +381,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 newVolume = standardMax
             }
 
-            val clampedVolume = max(0f, min(newVolume, boostMax))
+            val clampedVolume = newVolume.coerceIn(0f, boostMax)
             controller.setVolume(clampedVolume)
 
             if (newBoostRegime != state.isBoostRegime || newAnchorY != state.anchorY) {
@@ -453,7 +399,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
             }
         } else {
             val rawOffset = -deltaY * BRIGHTNESS_SENSITIVITY_PER_PX
-            val newBrightness = max(0f, min(state.initialValue + rawOffset, 1.0f))
+            val newBrightness = (state.initialValue + rawOffset).coerceIn(0f, 1.0f)
             controller.setBrightness(newBrightness)
             transitionTo(state.copy(currentY = currentY, currentValue = newBrightness))
         }
@@ -462,7 +408,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     private fun handleHorizontalSeekMove(state: GestureState.HorizontalSeek, currentX: Float, timeMs: Long) {
         val deltaX = currentX - state.confirmationX
         val deltaMs = (deltaX * state.sensitivityMsPerPx).roundToLong()
-        val targetMs = max(0L, min(state.initialVideoPositionMs + deltaMs, state.durationMs))
+        val targetMs = (state.initialVideoPositionMs + deltaMs).coerceIn(0L, state.durationMs)
 
         var newLastSeekIssuedAtMs = state.lastSeekIssuedAtMs
         val deltaXSinceLastSeek = abs(currentX - state.currentX)
@@ -499,18 +445,15 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val deltaX = currentX - state.prevX
         val deltaY = currentY - state.prevY
 
-        val normDx = deltaX / (controller.screenWidthPx * state.currentScale)
-        val normDy = deltaY / (controller.screenHeightPx * state.currentScale)
+        val (clampedPanX, clampedPanY) = calculateSmoothedAndClampedPan(
+            deltaX = deltaX,
+            deltaY = deltaY,
+            currentPanX = state.panX,
+            currentPanY = state.panY,
+            scale = state.currentScale
+        )
 
-        val alpha = 0.5f
-        val smoothedPanX = state.panX + alpha * normDx
-        val smoothedPanY = state.panY + alpha * normDy
-
-        val maxPan = max(0f, (state.currentScale - 1f) / (2f * state.currentScale))
-        val clampedPanX = max(-maxPan, min(smoothedPanX, maxPan))
-        val clampedPanY = max(-maxPan, min(smoothedPanY, maxPan))
-
-        controller.setZoomAndPan(controller.currentZoomLog2, clampedPanX, clampedPanY)
+        controller.setZoomAndPan(state.zoomLog2, clampedPanX, clampedPanY)
         transitionTo(
             state.copy(
                 prevX = currentX,
@@ -526,21 +469,18 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val validCurrentSpan = max(1f, currentSpan)
         val deltaZoom = ln(validCurrentSpan / validPrevSpan) * ZOOM_SENSITIVITY_MULTIPLIER
 
-        val newZoomLog2 = max(ZOOM_LOG2_MIN, min(state.currentZoomLog2 + deltaZoom, ZOOM_LOG2_MAX))
-        val scale = max(0.5f, Math.pow(2.0, newZoomLog2.toDouble()).toFloat())
+        val newZoomLog2 = (state.currentZoomLog2 + deltaZoom).coerceIn(ZOOM_LOG2_MIN, ZOOM_LOG2_MAX)
+        val scale = 2.0f.pow(newZoomLog2).coerceAtLeast(0.5f)
 
         val deltaX = midpointX - state.prevMidpointX
         val deltaY = midpointY - state.prevMidpointY
-        val normDx = deltaX / (controller.screenWidthPx * scale)
-        val normDy = deltaY / (controller.screenHeightPx * scale)
-
-        val alpha = 0.5f
-        val smoothedPanX = state.panX + alpha * normDx
-        val smoothedPanY = state.panY + alpha * normDy
-
-        val maxPan = max(0f, (scale - 1f) / (2f * scale))
-        val clampedPanX = max(-maxPan, min(smoothedPanX, maxPan))
-        val clampedPanY = max(-maxPan, min(smoothedPanY, maxPan))
+        val (clampedPanX, clampedPanY) = calculateSmoothedAndClampedPan(
+            deltaX = deltaX,
+            deltaY = deltaY,
+            currentPanX = state.panX,
+            currentPanY = state.panY,
+            scale = scale
+        )
 
         controller.setZoomAndPan(newZoomLog2, clampedPanX, clampedPanY)
         val percentage = (scale * 100f).roundToInt()
@@ -559,6 +499,26 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 lastReportedZoomPct = percentage
             )
         )
+    }
+
+    private fun calculateSmoothedAndClampedPan(
+        deltaX: Float,
+        deltaY: Float,
+        currentPanX: Float,
+        currentPanY: Float,
+        scale: Float
+    ): Pair<Float, Float> {
+        val normDx = deltaX / (controller.screenWidthPx * scale)
+        val normDy = deltaY / (controller.screenHeightPx * scale)
+
+        val alpha = PAN_SMOOTHING_ALPHA
+        val smoothedPanX = currentPanX + alpha * normDx
+        val smoothedPanY = currentPanY + alpha * normDy
+
+        val maxPan = max(0f, (scale - 1f) / (2f * scale))
+        val clampedPanX = smoothedPanX.coerceIn(-maxPan, maxPan)
+        val clampedPanY = smoothedPanY.coerceIn(-maxPan, maxPan)
+        return Pair(clampedPanX, clampedPanY)
     }
 
     private fun handleLongPressMove(state: GestureState.LongPress, currentX: Float, density: Float) {
@@ -584,7 +544,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val deltaX = currentX - state.startX
         val offset = (deltaX / controller.screenWidthPx) * 7f * 3.5f
         val rawIndex = (state.startPresetIndex + offset).roundToInt()
-        val clampedIndex = max(0, min(rawIndex, SPEED_PRESETS.lastIndex))
+        val clampedIndex = rawIndex.coerceIn(0, SPEED_PRESETS.lastIndex)
         val targetSpeed = SPEED_PRESETS[clampedIndex]
 
         if (targetSpeed != state.lastAppliedSpeed) {
@@ -641,8 +601,51 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         transitionTo(GestureState.Idle)
     }
 
-    fun onMultiTapUiHideTimeout(expectedLastTapTimeMs: Long) {
-        // Overlay is now hidden by onMultiTapInactivityTimeout; this is a no-op.
+    private fun applyMultiTapSeek(
+        state: GestureState.MultiTapSeeking?,
+        newTapCount: Int,
+        region: TapRegion,
+        timeMs: Long,
+        x: Float,
+        y: Float
+    ) {
+        val curveIndex = min(newTapCount - 1, MULTI_TAP_SEEK_CURVE_SEC.lastIndex)
+        val stepSeekSec = MULTI_TAP_SEEK_CURVE_SEC[curveIndex]
+        val isForward = region == TapRegion.RIGHT
+        val wasForward = state?.let { !it.isReverseDirection } ?: isForward
+
+        val newAccumulatedSec = if (state != null && isForward != wasForward && state.tapCount > 0) {
+            stepSeekSec
+        } else {
+            (state?.accumulatedSeekSec ?: 0) + stepSeekSec
+        }
+
+        val offsetMs = stepSeekSec * 1000L
+        if (isForward) {
+            controller.seekForward(offsetMs)
+        } else {
+            controller.seekBackward(offsetMs)
+        }
+
+        val label = "${if (isForward) "+" else "-"}${newAccumulatedSec}s"
+        controller.showDoubleTapSeekOverlay(newAccumulatedSec, isForward, label)
+
+        val inactivityJob = controller.scheduleTimer(MULTI_TAP_INACTIVITY_TIMEOUT_MS) {
+            onMultiTapInactivityTimeout(timeMs)
+        }
+
+        transitionTo(
+            GestureState.MultiTapSeeking(
+                tapCount = newTapCount,
+                accumulatedSeekSec = newAccumulatedSec,
+                lastTapRegion = region,
+                lastTapTimeMs = timeMs,
+                lastTapX = x,
+                lastTapY = y,
+                isReverseDirection = !isForward,
+                inactivityTimerId = inactivityJob
+            )
+        )
     }
 
     private fun transitionTo(newState: GestureState) {
@@ -680,9 +683,9 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val minutes = (totalSec % 3600) / 60
         val seconds = totalSec % 60
         return if (hours > 0) {
-            String.format("%d:%02d:%02d", hours, minutes, seconds)
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
         } else {
-            String.format("%02d:%02d", minutes, seconds)
+            String.format(Locale.US, "%02d:%02d", minutes, seconds)
         }
     }
 }
