@@ -1,8 +1,9 @@
 package com.tapman104.mpvplayer.player.controls
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -17,8 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tapman104.mpvplayer.util.TimeFormatter
 
-private val PillShape = RoundedCornerShape(50)
-
 @Composable
 fun PlayerBottomControls(
     isPlaying: Boolean,
@@ -29,22 +28,25 @@ fun PlayerBottomControls(
     onSeek: (Long) -> Unit,
     onSeekGesture: (Long) -> Unit = {},
     onSeekPreviewMs: (Long) -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     var isDragging by remember { mutableStateOf(false) }
     var dragPositionMs by remember { mutableStateOf(0L) }
 
+    val safeDurationMs = durationMs.coerceAtLeast(0L)
     // Priority: local drag > gesture scrub preview (finger-accurate) > normal playback position.
-    val displayMs = when {
+    val rawDisplayMs = when {
         isDragging -> dragPositionMs
         gestureSeekPreviewMs >= 0L -> gestureSeekPreviewMs
         else -> currentPositionMs
     }
-    val fraction = if (durationMs > 0L)
-        (displayMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-    else 0f
+    val displayMs = rawDisplayMs.coerceAtLeast(0L)
+    val fraction = if (safeDurationMs > 0L) {
+        (displayMs.toFloat() / safeDurationMs.toFloat()).coerceIn(0f, 1f)
+    } else 0f
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -62,21 +64,18 @@ fun PlayerBottomControls(
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp,
                 modifier = Modifier.width(42.dp),
-                style = androidx.compose.ui.text.TextStyle(
-                    shadow = androidx.compose.ui.graphics.Shadow(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        offset = androidx.compose.ui.geometry.Offset(0f, 1f),
-                        blurRadius = 3f
-                    )
-                )
+                style = PlayerControlsStyles.textShadowStyle
             )
             Slider(
                 value = fraction,
+                enabled = safeDurationMs > 0L,
                 onValueChange = { v ->
-                    isDragging = true
-                    dragPositionMs = (v * durationMs).toLong()
-                    onSeekGesture(dragPositionMs)
-                    onSeekPreviewMs(dragPositionMs)
+                    if (safeDurationMs > 0L) {
+                        isDragging = true
+                        dragPositionMs = (v * safeDurationMs).toLong()
+                        onSeekGesture(dragPositionMs)
+                        onSeekPreviewMs(dragPositionMs)
+                    }
                 },
                 onValueChangeFinished = {
                     if (isDragging) {
@@ -89,29 +88,19 @@ fun PlayerBottomControls(
                     .weight(1f)
                     .shadow(
                         elevation = 3.dp,
-                        shape = PillShape,
+                        shape = PlayerControlsStyles.PillShape,
                         ambientColor = Color.Black,
                         spotColor = Color.Black
                     ),
-                colors = SliderDefaults.colors(
-                    thumbColor = Color.White,
-                    activeTrackColor = Color.White,
-                    inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                )
+                colors = PlayerControlsStyles.seekBarColors()
             )
             Text(
-                text = TimeFormatter.formatMs(durationMs),
+                text = TimeFormatter.formatMs(safeDurationMs),
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp,
                 modifier = Modifier.width(42.dp),
                 textAlign = TextAlign.End,
-                style = androidx.compose.ui.text.TextStyle(
-                    shadow = androidx.compose.ui.graphics.Shadow(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        offset = androidx.compose.ui.geometry.Offset(0f, 1f),
-                        blurRadius = 3f
-                    )
-                )
+                style = PlayerControlsStyles.textShadowStyle
             )
         }
 
@@ -132,12 +121,18 @@ fun PlayerBottomControls(
                 contentColor = Color.Black
             )
         ) {
-            Icon(
-                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                tint = Color.Black,
-                modifier = Modifier.size(28.dp)
-            )
+            Crossfade(
+                targetState = isPlaying,
+                animationSpec = tween(durationMillis = 150),
+                label = "PlayPauseCrossfade"
+            ) { playing ->
+                Icon(
+                    imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (playing) "Pause" else "Play",
+                    tint = Color.Black,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
     }
 }

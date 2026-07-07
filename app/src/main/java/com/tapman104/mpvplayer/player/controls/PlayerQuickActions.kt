@@ -1,25 +1,24 @@
 package com.tapman104.mpvplayer.player.controls
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tapman104.mpvplayer.player.controls.PlayerControlsStyles.glassButtonShadow
 import com.tapman104.mpvplayer.player.model.DecodeMode
 
 
@@ -30,31 +29,32 @@ fun PlayerQuickActions(
     onSelectSubtitleTrack: () -> Unit,
     onDecodeModeClick: () -> Unit,
     onMoreOptions: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(true) }
 
-    val buttonColors = IconButtonDefaults.outlinedIconButtonColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
-        contentColor = Color.White.copy(alpha = 0.95f)
-    )
-    val buttonBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    val buttonColors = PlayerControlsStyles.quickActionButtonColors()
+    val buttonBorder = PlayerControlsStyles.quickActionButtonBorder()
 
-    /** Shadow modifier reused by every button. */
-    fun Modifier.glassButton(): Modifier = this
-        .shadow(elevation = 3.dp, shape = CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 0f else 180f,
+        animationSpec = tween(PlayerControlsStyles.ANIM_DURATION_MS),
+        label = "ChevronRotation"
+    )
 
     Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         AnimatedVisibility(
             visible = expanded,
-            enter = fadeIn(tween(180)) + expandHorizontally(
-                animationSpec = tween(180),
+            enter = fadeIn(tween(PlayerControlsStyles.ANIM_DURATION_MS)) + expandHorizontally(
+                animationSpec = tween(PlayerControlsStyles.ANIM_DURATION_MS),
                 expandFrom = Alignment.End
             ),
-            exit = fadeOut(tween(180)) + shrinkHorizontally(
-                animationSpec = tween(180),
+            exit = fadeOut(tween(PlayerControlsStyles.ANIM_DURATION_MS)) + shrinkHorizontally(
+                animationSpec = tween(PlayerControlsStyles.ANIM_DURATION_MS),
                 shrinkTowards = Alignment.End
             )
         ) {
@@ -65,12 +65,12 @@ fun PlayerQuickActions(
             ) {
                 OutlinedIconButton(
                     onClick = onSelectAudioTrack,
-                    modifier = Modifier.size(48.dp).glassButton(),
+                    modifier = Modifier.size(48.dp).glassButtonShadow(),
                     colors = buttonColors,
                     border = buttonBorder
                 ) {
                     Icon(
-                        Icons.Filled.Audiotrack,
+                        imageVector = Icons.Filled.Audiotrack,
                         contentDescription = "Audio track",
                         tint = Color.White.copy(alpha = 0.95f),
                         modifier = Modifier.size(18.dp)
@@ -79,12 +79,12 @@ fun PlayerQuickActions(
 
                 OutlinedIconButton(
                     onClick = onSelectSubtitleTrack,
-                    modifier = Modifier.size(48.dp).glassButton(),
+                    modifier = Modifier.size(48.dp).glassButtonShadow(),
                     colors = buttonColors,
                     border = buttonBorder
                 ) {
                     Icon(
-                        Icons.Filled.ClosedCaption,
+                        imageVector = Icons.Filled.ClosedCaption,
                         contentDescription = "Subtitle track",
                         tint = Color.White.copy(alpha = 0.95f),
                         modifier = Modifier.size(18.dp)
@@ -93,7 +93,7 @@ fun PlayerQuickActions(
 
                 OutlinedIconButton(
                     onClick = onDecodeModeClick,
-                    modifier = Modifier.size(48.dp).glassButton(),
+                    modifier = Modifier.size(48.dp).glassButtonShadow(),
                     colors = buttonColors,
                     border = buttonBorder
                 ) {
@@ -109,19 +109,20 @@ fun PlayerQuickActions(
                             },
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.95f)
+                            color = Color.White.copy(alpha = 0.95f),
+                            style = PlayerControlsStyles.textShadowStyle
                         )
                     }
                 }
 
                 OutlinedIconButton(
                     onClick = onMoreOptions,
-                    modifier = Modifier.size(48.dp).glassButton(),
+                    modifier = Modifier.size(48.dp).glassButtonShadow(),
                     colors = buttonColors,
                     border = buttonBorder
                 ) {
                     Icon(
-                        Icons.Filled.Settings,
+                        imageVector = Icons.Filled.Settings,
                         contentDescription = "More options",
                         tint = Color.White.copy(alpha = 0.95f),
                         modifier = Modifier.size(18.dp)
@@ -133,15 +134,17 @@ fun PlayerQuickActions(
         // Always-visible collapse/expand toggle
         OutlinedIconButton(
             onClick = { expanded = !expanded },
-            modifier = Modifier.size(48.dp).glassButton(),
+            modifier = Modifier.size(48.dp).glassButtonShadow(),
             colors = buttonColors,
             border = buttonBorder
         ) {
             Icon(
-                imageVector = if (expanded) Icons.Filled.ChevronLeft else Icons.Filled.ChevronRight,
+                imageVector = Icons.Filled.ChevronLeft,
                 contentDescription = if (expanded) "Collapse" else "Expand",
                 tint = Color.White.copy(alpha = 0.95f),
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier
+                    .size(22.dp)
+                    .rotate(chevronRotation)
             )
         }
     }
