@@ -69,6 +69,7 @@ fun PlayerBottomControls(
                 enabled = safeDurationMs > 0L,
                 onValueChange = { v ->
                     if (safeDurationMs > 0L) {
+                        if (!isDragging) onSeekPreviewMs(-1L)
                         isDragging = true
                         dragPositionMs = (v * safeDurationMs).toLong()
                         onSeekGesture(dragPositionMs)
@@ -77,10 +78,11 @@ fun PlayerBottomControls(
                 },
                 onValueChangeFinished = {
                     if (isDragging) {
-                        onSeek(dragPositionMs)
+                        val finalPos = dragPositionMs
+                        isDragging = false
                         onSeekPreviewMs(-1L)
+                        onSeek(finalPos)
                     }
-                    isDragging = false
                 },
                 modifier = Modifier.weight(1f),
                 colors = PlayerControlsStyles.seekBarColors()
