@@ -40,6 +40,8 @@ class PlayerViewModel(
 
     private var lastTimePosUpdate = 0L
     private var lastSeekTime = 0L
+    /** True while the user is actively dragging the seek slider — suppresses mpv position echo-backs. */
+    @Volatile private var isSliderSeeking = false
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -109,7 +111,9 @@ class PlayerViewModel(
     }
     
     fun onSeekCommitMs(positionMs: Long) {
+        isSliderSeeking = false
         lastSeekTime = 0L
+        lastTimePosUpdate = 0L   // accept next time-pos immediately to snap to committed position
         val seconds = positionMs / 1000.0
         controller.executor.seekCommit(seconds)
     }
@@ -344,11 +348,13 @@ class PlayerViewModel(
     }
 
     override fun seekGesture(positionMs: Long) {
+        isSliderSeeking = true
         lastSeekTime = System.currentTimeMillis()
         controller.executor.seekGesture(positionMs / 1000.0)
     }
 
     override fun seekCommit(positionMs: Long) {
+        isSliderSeeking = false
         lastSeekTime = 0L
         controller.executor.seekCommit(positionMs / 1000.0)
     }
@@ -422,10 +428,16 @@ class PlayerViewModel(
             }
             "time-pos" -> {
                 val seconds = value as? Double ?: return
-                val newPosMs = (seconds * 1000).toLong()
                 val now = System.currentTimeMillis()
-                
-                if (now - lastSeekTime < 2000 || now - lastTimePosUpdate >= 200) {
+
+                // Suppress echo-backs while the slider is being actively dragged —
+                // the UI already drives position from dragPositionMs in that window.
+                if (isSliderSeeking) return
+
+                // Outside drag: throttle to ~5 Hz so Compose isn't recomposed on every
+                // mpv frame. After a seek commit, the next update is always accepted
+                // (lastTimePosUpdate was reset to 0 on commit) to snap to the new position.
+                if (now - lastTimePosUpdate >= 200) {
                     _playerState.update { it.copy(positionSec = seconds) }
                     lastTimePosUpdate = now
                 }

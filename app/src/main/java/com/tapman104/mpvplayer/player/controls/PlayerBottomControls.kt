@@ -3,7 +3,6 @@ package com.tapman104.mpvplayer.player.controls
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -11,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -84,14 +82,7 @@ fun PlayerBottomControls(
                     }
                     isDragging = false
                 },
-                modifier = Modifier
-                    .weight(1f)
-                    .shadow(
-                        elevation = 3.dp,
-                        shape = PlayerControlsStyles.PillShape,
-                        ambientColor = Color.Black,
-                        spotColor = Color.Black
-                    ),
+                modifier = Modifier.weight(1f),
                 colors = PlayerControlsStyles.seekBarColors()
             )
             Text(
@@ -109,13 +100,7 @@ fun PlayerBottomControls(
             onClick = onTogglePlay,
             modifier = Modifier
                 .padding(top = 14.dp, bottom = 4.dp)
-                .size(52.dp)
-                .shadow(
-                    elevation = 10.dp,
-                    shape = CircleShape,
-                    ambientColor = Color.Black,
-                    spotColor = Color.Black
-                ),
+                .size(52.dp),
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = Color.White.copy(alpha = 0.92f),
                 contentColor = Color.Black
