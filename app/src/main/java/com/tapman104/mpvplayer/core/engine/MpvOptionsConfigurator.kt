@@ -144,15 +144,7 @@ class MpvOptionsConfigurator(
 
         // Profile and Video Output
         MPVLib.setOptionString("profile", general.profile)
-        val vo = when {
-            general.gpuNext && !general.useVulkan -> {
-                // gpu-next requires Vulkan; silently fall back and warn the caller
-                Log.w(TAG, "gpu-next requested without Vulkan — falling back to gpu")
-                "gpu"
-            }
-            general.gpuNext -> "gpu-next"
-            else -> "gpu"
-        }
+        val vo = if (general.gpuNext) "gpu-next" else "gpu"
         MPVLib.setOptionString("vo", vo)
         onVoConfigured?.invoke(vo)
 
@@ -170,8 +162,8 @@ class MpvOptionsConfigurator(
         }
 
         // Cap demuxer cache for mobile to prevent memory issues.
-        // cacheMegs * 1024 * 1024 converts MiB to bytes.
-        val cacheBytes = (general.cacheMegs * 1024 * 1024).toString()
+        // cacheMegs * 1024 * 1024 converts MiB to bytes. Use Long to prevent overflow.
+        val cacheBytes = (general.cacheMegs.toLong() * 1024L * 1024L).toString()
         MPVLib.setOptionString("demuxer-max-bytes", cacheBytes)
         MPVLib.setOptionString("demuxer-max-back-bytes", cacheBytes)
 
@@ -351,7 +343,7 @@ class MpvOptionsConfigurator(
             }
             DebandingMode.CPU -> {
                 MPVLib.setOptionString("deband", "no")
-                MPVLib.command("vf", "add", "@deband:gradfun=radius=12")
+                runCatching { MPVLib.command("vf", "add", "@deband:gradfun=radius=12") }
             }
             DebandingMode.GPU -> {
                 // runCatching because @deband may not exist yet if no file has loaded

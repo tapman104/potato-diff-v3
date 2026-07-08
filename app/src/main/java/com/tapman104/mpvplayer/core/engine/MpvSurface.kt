@@ -26,6 +26,12 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
 
     fun setVo(vo: String) {
         voInUse = vo
+        val currentSurface = attachedSurface
+        if (currentSurface != null && currentSurface.isValid) {
+            executor.execute {
+                runCatching { MPVLib.setPropertyString("vo", vo) }
+            }
+        }
     }
 
     private var surfaceReadyCallback: (() -> Unit)? = null
@@ -37,8 +43,23 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
     fun hasSurface(): Boolean = attachedSurface != null || pendingAttachSurface.get() != null
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        val surface = holder.surface ?: return
-        if (!surface.isValid) return
+        attachSurfaceInternal(holder.surface)
+    }
+
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+        Log.d(TAG, "surfaceChanged: width=$width, height=$height")
+        attachSurfaceInternal(holder.surface)
+        if (width > 0 && height > 0) {
+            val size = "${width}x${height}"
+            executor.execute {
+                runCatching { MPVLib.setPropertyString("android-surface-size", size) }
+            }
+        }
+    }
+
+    private fun attachSurfaceInternal(surface: Surface?) {
+        if (surface == null || !surface.isValid) return
+        if (attachedSurface == surface) return
 
         attachedSurface = surface
         pendingAttachSurface.set(surface)
@@ -47,28 +68,20 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
         val vo = voInUse
         executor.execute {
             Log.d(TAG, "attachSurface gen=$gen")
-            MPVLib.attachSurface(surface)
-            MPVLib.setOptionString("force-window", "yes")
-            // If no file is pending (recovery after lock/recents),
-            // re-enable the VO so mpv resumes rendering.
-            // surfaceReadyCallback will only load a file if pendingFileUri != null.
-            MPVLib.setPropertyString("vo", vo)
+            runCatching {
+                MPVLib.attachSurface(surface)
+                MPVLib.setOptionString("force-window", "yes")
+                MPVLib.setPropertyString("vo", vo)
+            }
             pendingAttachSurface.set(null)
             mainHandler.post { callback?.invoke() }
-        }
-    }
-
-    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        Log.d(TAG, "surfaceChanged: width=$width, height=$height")
-        val size = "${width}x${height}"
-        executor.execute {
-            MPVLib.setPropertyString("android-surface-size", size)
         }
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         Log.d(TAG, "surfaceDestroyed")
         attachedSurface = null
+        pendingAttachSurface.set(null)
         // Disable VO first so mpv stops rendering before we detach.
         // This matches BaseMPVView from mpv-android and avoids a race
         // where mpv tries to write to the surface after it is gone.

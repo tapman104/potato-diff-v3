@@ -30,15 +30,19 @@ object TrackListParser {
             val arr = trackListNode.asArray() ?: return emptyList()
             buildList {
                 for (node in arr) {
-                    if (node.get("type")?.asString() != type) continue
-                    // asInt() returns Long on most MPVNode implementations; .toInt() is safe for track IDs
-                    val id = node.get("id")?.asInt()?.toInt() ?: continue
-                    val title = node.get("title")?.asString()?.takeIf { it.isNotBlank() }
-                        ?: node.get("codec")?.asString()?.takeIf { it.isNotBlank() }
-                        ?: "${type.replaceFirstChar { it.uppercaseChar() }} Track $id"
-                    val lang = node.get("lang")?.asString() ?: "unknown"
-                    val selected = node.get("selected")?.asBoolean() ?: false
-                    add(factory(id, title, lang, selected))
+                    try {
+                        if (node.get("type")?.asString() != type) continue
+                        // asInt() returns Long on most MPVNode implementations; .toInt() is safe for track IDs
+                        val id = node.get("id")?.asInt()?.toInt() ?: continue
+                        val title = node.get("title")?.asString()?.takeIf { it.isNotBlank() }
+                            ?: node.get("codec")?.asString()?.takeIf { it.isNotBlank() }
+                            ?: "${type.replaceFirstChar { it.uppercaseChar() }} Track $id"
+                        val lang = node.get("lang")?.asString() ?: "unknown"
+                        val selected = node.get("selected")?.asBoolean() ?: false
+                        add(factory(id, title, lang, selected))
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Skipping malformed track node", e)
+                    }
                 }
             }
         } catch (e: Exception) {

@@ -83,10 +83,12 @@ class MpvController(private val context: Context) {
         MPVLib.observeProperty(MpvProp.EOF_REACHED, MpvFmt.FLAG)
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun destroy() {
         if (!initialized.compareAndSet(true, false)) return
         Log.d(TAG, "Destroying MPV engine")
 
+        _initResult.resetReplayCache()
         executor.detachSurface()
 
         executor.execute {

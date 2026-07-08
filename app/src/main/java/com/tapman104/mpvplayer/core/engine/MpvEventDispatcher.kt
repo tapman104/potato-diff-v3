@@ -32,35 +32,45 @@ class MpvEventDispatcher : MPVLib.EventObserver {
         listeners.remove(listener)
     }
 
+    private inline fun notifyListeners(block: (MpvEventListener) -> Unit) {
+        listeners.forEach { listener ->
+            try {
+                block(listener)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error dispatching MPV event to listener", e)
+            }
+        }
+    }
+
     override fun eventProperty(name: String) {
-        listeners.forEach { it.onPropertyChange(name, null) }
+        notifyListeners { it.onPropertyChange(name, null) }
     }
 
     override fun eventProperty(name: String, value: Long) {
-        listeners.forEach { it.onPropertyChange(name, value) }
+        notifyListeners { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: Boolean) {
-        listeners.forEach { it.onPropertyChange(name, value) }
+        notifyListeners { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: String) {
-        listeners.forEach { it.onPropertyChange(name, value) }
+        notifyListeners { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: Double) {
-        listeners.forEach { it.onPropertyChange(name, value) }
+        notifyListeners { it.onPropertyChange(name, value) }
     }
 
     override fun eventProperty(name: String, value: MPVNode) {
-        listeners.forEach { it.onPropertyChange(name, value) }
+        notifyListeners { it.onPropertyChange(name, value) }
     }
 
     override fun event(eventId: Int, eventNode: MPVNode) {
         Log.d(TAG, "Received MPV event: $eventId")
         when (eventId) {
-            MpvEvent.FILE_LOADED      -> listeners.forEach { it.onFileLoaded() }
-            MpvEvent.PLAYBACK_RESTART -> listeners.forEach { it.onPlaybackStarted() }
+            MpvEvent.FILE_LOADED      -> notifyListeners { it.onFileLoaded() }
+            MpvEvent.PLAYBACK_RESTART -> notifyListeners { it.onPlaybackStarted() }
             MpvEvent.END_FILE -> {
                 val reason = try {
                     eventNode.get("reason")?.asInt()?.toInt() ?: 0
@@ -68,7 +78,7 @@ class MpvEventDispatcher : MPVLib.EventObserver {
                     Log.w(TAG, "Could not parse end-file reason", e)
                     0
                 }
-                listeners.forEach { it.onPlaybackStopped(reason) }
+                notifyListeners { it.onPlaybackStopped(reason) }
             }
             else -> { /* other events are handled via eventProperty callbacks */ }
         }

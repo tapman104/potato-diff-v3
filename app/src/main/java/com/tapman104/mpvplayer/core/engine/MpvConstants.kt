@@ -78,10 +78,12 @@ internal object MpvEvent {
 
 class TrackDelegate(private val propName: String) {
     operator fun getValue(thisRef: Any?, property: KProperty<*>): Int =
-        MPVLib.getPropertyString(propName)?.toIntOrNull() ?: -1
+        runCatching { MPVLib.getPropertyString(propName)?.toIntOrNull() ?: -1 }.getOrDefault(-1)
 
     operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Int) {
-        if (value == -1) MPVLib.setPropertyString(propName, "no")
-        else MPVLib.setPropertyInt(propName, value)
+        runCatching {
+            if (value < 0) MPVLib.setPropertyString(propName, "no")
+            else MPVLib.setPropertyInt(propName, value)
+        }
     }
 }

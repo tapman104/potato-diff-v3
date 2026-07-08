@@ -83,6 +83,7 @@ class MpvCommandExecutor {
      * queued before the executor picks it up is actually sent.
      */
     fun seekGesture(seconds: Double) {
+        if (!seconds.isFinite()) return
         pendingSeek.set(seconds)
         execute {
             val target = pendingSeek.getAndSet(null) ?: return@execute
@@ -95,6 +96,7 @@ class MpvCommandExecutor {
      * a precise final position.
      */
     fun seekCommit(seconds: Double) {
+        if (!seconds.isFinite()) return
         pendingSeek.set(null)
         execute {
             MPVLib.command("seek", seconds.toString(), "absolute+exact")
@@ -102,12 +104,14 @@ class MpvCommandExecutor {
     }
 
     fun seekRelative(seconds: Double) {
+        if (!seconds.isFinite()) return
         execute {
             MPVLib.command("seek", seconds.toString(), "relative")
         }
     }
 
     fun seekRelativeCoalesced(seconds: Double) {
+        if (!seconds.isFinite()) return
         // Accumulate: add to whatever is already pending
         pendingRelativeSeek.getAndUpdate { prev -> (prev ?: 0.0) + seconds }
         execute {
@@ -149,6 +153,7 @@ class MpvCommandExecutor {
     }
 
     fun setSpeed(speed: Double) {
+        if (!speed.isFinite() || speed <= 0.0) return
         execute {
             MPVLib.setPropertyDouble(MpvProp.SPEED, speed)
         }
@@ -167,19 +172,21 @@ class MpvCommandExecutor {
     }
 
     fun setSubtitleAppearance(size: Float, position: Float) {
+        if (!size.isFinite() || !position.isFinite()) return
+        val pos = (100.0 - (position * 100.0)).coerceIn(0.0, 100.0)
         execute {
             MPVLib.setPropertyDouble("sub-scale", size.toDouble())
-            // sub-pos is measured from the top of the frame (0 = top, 100 = bottom),
-            // so we invert the caller's 0-to-1 bottom-anchored position value.
-            MPVLib.setPropertyDouble("sub-pos", (100.0 - (position * 100.0)))
+            MPVLib.setPropertyDouble("sub-pos", pos)
         }
     }
 
     fun setVideoZoom(zoom: Float) {
+        if (!zoom.isFinite()) return
         execute { MPVLib.setPropertyDouble("video-zoom", zoom.toDouble()) }
     }
 
     fun setVideoPan(panX: Float, panY: Float) {
+        if (!panX.isFinite() || !panY.isFinite()) return
         execute {
             MPVLib.setPropertyDouble("video-pan-x", panX.toDouble())
             MPVLib.setPropertyDouble("video-pan-y", panY.toDouble())
@@ -209,7 +216,7 @@ class MpvCommandExecutor {
             } else rawAspect
 
             val result = if (aspect == null || aspect <= 0.001) null
-                         else if (rotate % 180 == 90) 1.0 / aspect else aspect
+                         else if (kotlin.math.abs(rotate) % 180 == 90) 1.0 / aspect else aspect
             mainHandler.post { onResult(result) }
         }
     }
@@ -231,7 +238,7 @@ class MpvCommandExecutor {
         if (mapped == null) {
             if (!event.isPrintingKey) return false
             val ch = event.unicodeChar
-            if (ch and KeyCharacterMap.COMBINING_ACCENT != 0) return false  // dead key
+            if (ch == 0 || (ch and KeyCharacterMap.COMBINING_ACCENT != 0)) return false  // dead key or 0
             mapped = ch.toChar().toString()
         }
         // Suppress auto-repeat — MPV handles its own repeat internally
