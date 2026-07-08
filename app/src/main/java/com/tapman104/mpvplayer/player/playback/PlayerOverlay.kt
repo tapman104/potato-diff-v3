@@ -59,6 +59,12 @@ fun PlayerOverlay(
     onSubtitleAppearanceReset: () -> Unit,
     currentZoom: Float = 0f,
     onZoomChange: (Float) -> Unit = {},
+    doubleTapSeekSeconds: Int = 10,
+    swipeToSeek: Boolean = true,
+    brightnessSwipe: Boolean = true,
+    volumeSwipe: Boolean = true,
+    longPress2x: Boolean = true,
+    gestureSensitivity: String = "normal",
     modifier: Modifier = Modifier
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
@@ -125,7 +131,13 @@ fun PlayerOverlay(
             volumePercentage = volumePercentage,
             onVolumeChange = { volumePercentage = it },
             currentZoom = currentZoom,
-            onZoomChange = onZoomChange
+            onZoomChange = onZoomChange,
+            doubleTapSeekSeconds = doubleTapSeekSeconds,
+            swipeToSeek = swipeToSeek,
+            brightnessSwipe = brightnessSwipe,
+            volumeSwipe = volumeSwipe,
+            longPress2x = longPress2x,
+            gestureSensitivity = gestureSensitivity
         )
 
         // ── TOP BAR ──────────────────────────────────────────────────────────

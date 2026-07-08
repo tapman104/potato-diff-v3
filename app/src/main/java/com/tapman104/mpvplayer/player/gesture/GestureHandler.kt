@@ -54,6 +54,12 @@ fun GestureHandler(
     volumePercentage: Int = 0,
     onVolumeChange: (Int) -> Unit = {},
     onSeekPreviewMs: (Long) -> Unit = {},
+    doubleTapSeekSeconds: Int = 10,
+    swipeToSeek: Boolean = true,
+    brightnessSwipe: Boolean = true,
+    volumeSwipe: Boolean = true,
+    longPress2x: Boolean = true,
+    gestureSensitivity: String = "normal",
 ) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -249,6 +255,26 @@ fun GestureHandler(
     }
 
     val stateMachine = remember { MpvGestureStateMachine(controller) }
+
+    LaunchedEffect(
+        doubleTapSeekSeconds,
+        swipeToSeek,
+        brightnessSwipe,
+        volumeSwipe,
+        longPress2x,
+        gestureSensitivity
+    ) {
+        stateMachine.seekDurationSec = doubleTapSeekSeconds
+        stateMachine.swipeToSeekEnabled = swipeToSeek
+        stateMachine.brightnessSwipeEnabled = brightnessSwipe
+        stateMachine.volumeSwipeEnabled = volumeSwipe
+        stateMachine.longPress2xEnabled = longPress2x
+        stateMachine.deadzoneMultiplier = when (gestureSensitivity) {
+            "low" -> 1.5f
+            "high" -> 0.6f
+            else -> 1.0f
+        }
+    }
 
     Box(
         modifier = modifier

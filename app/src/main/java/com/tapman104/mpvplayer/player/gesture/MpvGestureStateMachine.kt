@@ -16,6 +16,13 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     var currentState: GestureState = GestureState.Idle
         private set
 
+    @Volatile var seekDurationSec: Int = 10
+    @Volatile var swipeToSeekEnabled: Boolean = true
+    @Volatile var brightnessSwipeEnabled: Boolean = true
+    @Volatile var volumeSwipeEnabled: Boolean = true
+    @Volatile var longPress2xEnabled: Boolean = true
+    @Volatile var deadzoneMultiplier: Float = 1.0f
+
     companion object {
         const val EDGE_DEAD_ZONE_DP = 48f
         const val TAP_MAX_MOVEMENT_PX = 10f
@@ -53,7 +60,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         midpointX: Float = x,
         midpointY: Float = y
     ) {
-        val deadZonePx = EDGE_DEAD_ZONE_DP * density
+        val deadZonePx = EDGE_DEAD_ZONE_DP * density * deadzoneMultiplier
         if (x < deadZonePx || x > controller.screenWidthPx - deadZonePx ||
             y < deadZonePx || y > controller.screenHeightPx - deadZonePx
         ) {
@@ -257,6 +264,8 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         if (absDy > VERTICAL_SWIPE_MIN_DY_PX && absDy > absDx * VERTICAL_SWIPE_SLOP_RATIO) {
             val isRightHalf = candidate.downX > controller.screenWidthPx / 2f
             val isVolumeSide = if (controller.isVolumeSideRight) isRightHalf else !isRightHalf
+            if (isVolumeSide && !volumeSwipeEnabled) return null
+            if (!isVolumeSide && !brightnessSwipeEnabled) return null
             val initialVal = if (isVolumeSide) controller.volume else controller.brightness
             val isBoost = isVolumeSide && initialVal > controller.maxStandardVolume
 
@@ -276,7 +285,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
             )
         }
 
-        if (absDx > HORIZONTAL_SEEK_MIN_DX_PX && absDx > absDy * HORIZONTAL_SEEK_SLOP_RATIO &&
+        if (swipeToSeekEnabled && absDx > HORIZONTAL_SEEK_MIN_DX_PX && absDx > absDy * HORIZONTAL_SEEK_SLOP_RATIO &&
             elapsedMs > HORIZONTAL_SEEK_MIN_ELAPSED_MS && zoomScale <= 1.0f && panelShown == PanelShown.NONE
         ) {
             val wasPaused = controller.isPaused
@@ -569,6 +578,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     }
 
     fun onLongPressTimeout(expectedDownTimeMs: Long) {
+        if (!longPress2xEnabled) return
         val state = currentState as? GestureState.TapCandidate ?: return
         if (state.downTimeMs != expectedDownTimeMs || state.exceededTapThreshold) return
 
@@ -609,8 +619,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         x: Float,
         y: Float
     ) {
-        val curveIndex = min(newTapCount - 1, MULTI_TAP_SEEK_CURVE_SEC.lastIndex)
-        val stepSeekSec = MULTI_TAP_SEEK_CURVE_SEC[curveIndex]
+        val stepSeekSec = seekDurationSec
         val isForward = region == TapRegion.RIGHT
         val wasForward = state?.let { !it.isReverseDirection } ?: isForward
 

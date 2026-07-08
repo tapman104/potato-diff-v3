@@ -67,6 +67,19 @@ class PlayerViewModel(
     val resumePlayback = preferencesRepository.resumePlayback
     val decodeModePreference = preferencesRepository.decodeMode
 
+    val debandFilter = preferencesRepository.debandFilter
+    val videoScale = preferencesRepository.videoScale
+    val volumeBoost = preferencesRepository.volumeBoost
+    val pitchCorrection = preferencesRepository.pitchCorrection
+    val audioOutputDriver = preferencesRepository.audioOutputDriver
+    val doubleTapSeekSeconds = preferencesRepository.doubleTapSeekSeconds
+    val swipeToSeek = preferencesRepository.swipeToSeek
+    val brightnessSwipe = preferencesRepository.brightnessSwipe
+    val volumeSwipe = preferencesRepository.volumeSwipe
+    val longPress2x = preferencesRepository.longPress2x
+    val gestureSensitivity = preferencesRepository.gestureSensitivity
+    val backgroundPlay = preferencesRepository.backgroundPlay
+
     init {
         resumePositionManager.attach(viewModelScope) { _playerState.value.durationMs }
         controller.dispatcher.addListener(this)
@@ -77,15 +90,47 @@ class PlayerViewModel(
         viewModelScope.launch {
             when (val result = controller.initResult.first()) {
                 is InitResult.Success -> {
-                    preferencesRepository.decodeMode.collect { modeStr ->
-                        val mode = when (modeStr) {
-                            DecodeMode.HWPlus.mpvValue -> DecodeMode.HWPlus
-                            DecodeMode.SW.mpvValue -> DecodeMode.SW
-                            else -> DecodeMode.HW
+                    viewModelScope.launch {
+                        preferencesRepository.decodeMode.collect { modeStr ->
+                            val mode = when (modeStr) {
+                                DecodeMode.HWPlus.mpvValue -> DecodeMode.HWPlus
+                                DecodeMode.SW.mpvValue -> DecodeMode.SW
+                                else -> DecodeMode.HW
+                            }
+                            if (_playerState.value.decodeMode != mode) {
+                                controller.executor.setHwdec(mode.mpvValue)
+                                _playerState.update { it.copy(decodeMode = mode) }
+                            }
                         }
-                        if (_playerState.value.decodeMode != mode) {
-                            controller.executor.setHwdec(mode.mpvValue)
-                            _playerState.update { it.copy(decodeMode = mode) }
+                    }
+                    viewModelScope.launch {
+                        preferencesRepository.debandFilter.collect { deband ->
+                            controller.executor.execute { MPVLib.setPropertyBoolean("deband", deband) }
+                        }
+                    }
+                    viewModelScope.launch {
+                        preferencesRepository.videoScale.collect { scale ->
+                            controller.executor.execute { MPVLib.setPropertyString("scale", scale) }
+                        }
+                    }
+                    viewModelScope.launch {
+                        preferencesRepository.volumeBoost.collect { boost ->
+                            controller.executor.execute {
+                                MPVLib.setPropertyInt("volume-max", boost)
+                                if (boost > 100) {
+                                    MPVLib.setPropertyInt("volume", boost)
+                                }
+                            }
+                        }
+                    }
+                    viewModelScope.launch {
+                        preferencesRepository.pitchCorrection.collect { enabled ->
+                            controller.executor.execute { MPVLib.setPropertyBoolean("audio-pitch-correction", enabled) }
+                        }
+                    }
+                    viewModelScope.launch {
+                        preferencesRepository.audioOutputDriver.collect { ao ->
+                            controller.executor.execute { MPVLib.setPropertyString("ao", ao) }
                         }
                     }
                 }
@@ -298,6 +343,78 @@ class PlayerViewModel(
     fun setDecodeModeStringPreference(mpvValue: String) {
         viewModelScope.launch {
             preferencesRepository.setDecodeMode(mpvValue)
+        }
+    }
+
+    fun setDebandFilter(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setDebandFilter(enabled)
+        }
+    }
+
+    fun setVideoScale(scale: String) {
+        viewModelScope.launch {
+            preferencesRepository.setVideoScale(scale)
+        }
+    }
+
+    fun setVolumeBoost(boost: Int) {
+        viewModelScope.launch {
+            preferencesRepository.setVolumeBoost(boost)
+        }
+    }
+
+    fun setPitchCorrection(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setPitchCorrection(enabled)
+        }
+    }
+
+    fun setAudioOutputDriver(driver: String) {
+        viewModelScope.launch {
+            preferencesRepository.setAudioOutputDriver(driver)
+        }
+    }
+
+    fun setDoubleTapSeekSeconds(seconds: Int) {
+        viewModelScope.launch {
+            preferencesRepository.setDoubleTapSeekSeconds(seconds)
+        }
+    }
+
+    fun setSwipeToSeek(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setSwipeToSeek(enabled)
+        }
+    }
+
+    fun setBrightnessSwipe(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setBrightnessSwipe(enabled)
+        }
+    }
+
+    fun setVolumeSwipe(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setVolumeSwipe(enabled)
+        }
+    }
+
+    fun setLongPress2x(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setLongPress2x(enabled)
+        }
+    }
+
+    fun setGestureSensitivity(sensitivity: String) {
+        viewModelScope.launch {
+            preferencesRepository.setGestureSensitivity(sensitivity)
+        }
+    }
+
+    fun setBackgroundPlay(mode: String) {
+        viewModelScope.launch {
+            preferencesRepository.setBackgroundPlay(mode)
         }
     }
 

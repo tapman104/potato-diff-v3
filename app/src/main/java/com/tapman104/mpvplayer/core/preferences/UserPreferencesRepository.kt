@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,42 @@ class UserPreferencesRepository(private val context: Context) {
 
         val DECODE_MODE = stringPreferencesKey("decode_mode")
         const val DEFAULT_DECODE_MODE = "mediacodec"
+
+        val DEBAND_FILTER = booleanPreferencesKey("deband_filter")
+        const val DEFAULT_DEBAND_FILTER = false
+
+        val VIDEO_SCALE = stringPreferencesKey("video_scale")
+        const val DEFAULT_VIDEO_SCALE = "lanczos"
+
+        val VOLUME_BOOST = intPreferencesKey("volume_boost")
+        const val DEFAULT_VOLUME_BOOST = 100
+
+        val PITCH_CORRECTION = booleanPreferencesKey("pitch_correction")
+        const val DEFAULT_PITCH_CORRECTION = true
+
+        val AUDIO_OUTPUT_DRIVER = stringPreferencesKey("audio_output_driver")
+        const val DEFAULT_AUDIO_OUTPUT_DRIVER = "audiotrack"
+
+        val DOUBLE_TAP_SEEK_SECONDS = intPreferencesKey("double_tap_seek_seconds")
+        const val DEFAULT_DOUBLE_TAP_SEEK_SECONDS = 10
+
+        val SWIPE_TO_SEEK = booleanPreferencesKey("swipe_to_seek")
+        const val DEFAULT_SWIPE_TO_SEEK = true
+
+        val BRIGHTNESS_SWIPE = booleanPreferencesKey("brightness_swipe")
+        const val DEFAULT_BRIGHTNESS_SWIPE = true
+
+        val VOLUME_SWIPE = booleanPreferencesKey("volume_swipe")
+        const val DEFAULT_VOLUME_SWIPE = true
+
+        val LONG_PRESS_2X = booleanPreferencesKey("long_press_2x")
+        const val DEFAULT_LONG_PRESS_2X = true
+
+        val GESTURE_SENSITIVITY = stringPreferencesKey("gesture_sensitivity")
+        const val DEFAULT_GESTURE_SENSITIVITY = "normal"
+
+        val BACKGROUND_PLAY = stringPreferencesKey("background_play")
+        const val DEFAULT_BACKGROUND_PLAY = "off"
     }
 
     /** Emits the saved subtitle language preference, defaulting to "en". */
@@ -48,6 +85,54 @@ class UserPreferencesRepository(private val context: Context) {
 
     val decodeMode: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
         prefs[DECODE_MODE] ?: DEFAULT_DECODE_MODE
+    }
+
+    val debandFilter: Flow<Boolean> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[DEBAND_FILTER] ?: DEFAULT_DEBAND_FILTER
+    }
+
+    val videoScale: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[VIDEO_SCALE] ?: DEFAULT_VIDEO_SCALE
+    }
+
+    val volumeBoost: Flow<Int> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[VOLUME_BOOST] ?: DEFAULT_VOLUME_BOOST
+    }
+
+    val pitchCorrection: Flow<Boolean> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[PITCH_CORRECTION] ?: DEFAULT_PITCH_CORRECTION
+    }
+
+    val audioOutputDriver: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[AUDIO_OUTPUT_DRIVER] ?: DEFAULT_AUDIO_OUTPUT_DRIVER
+    }
+
+    val doubleTapSeekSeconds: Flow<Int> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[DOUBLE_TAP_SEEK_SECONDS] ?: DEFAULT_DOUBLE_TAP_SEEK_SECONDS
+    }
+
+    val swipeToSeek: Flow<Boolean> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[SWIPE_TO_SEEK] ?: DEFAULT_SWIPE_TO_SEEK
+    }
+
+    val brightnessSwipe: Flow<Boolean> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[BRIGHTNESS_SWIPE] ?: DEFAULT_BRIGHTNESS_SWIPE
+    }
+
+    val volumeSwipe: Flow<Boolean> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[VOLUME_SWIPE] ?: DEFAULT_VOLUME_SWIPE
+    }
+
+    val longPress2x: Flow<Boolean> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[LONG_PRESS_2X] ?: DEFAULT_LONG_PRESS_2X
+    }
+
+    val gestureSensitivity: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[GESTURE_SENSITIVITY] ?: DEFAULT_GESTURE_SENSITIVITY
+    }
+
+    val backgroundPlay: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
+        prefs[BACKGROUND_PLAY] ?: DEFAULT_BACKGROUND_PLAY
     }
 
     suspend fun setSubtitleLanguage(lang: String) {
@@ -79,4 +164,77 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[DECODE_MODE] = mode
         }
     }
+
+    suspend fun setDebandFilter(enabled: Boolean) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[DEBAND_FILTER] = enabled
+        }
+    }
+
+    suspend fun setVideoScale(scale: String) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[VIDEO_SCALE] = scale
+        }
+    }
+
+    suspend fun setVolumeBoost(boost: Int) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[VOLUME_BOOST] = boost
+        }
+    }
+
+    suspend fun setPitchCorrection(enabled: Boolean) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[PITCH_CORRECTION] = enabled
+        }
+    }
+
+    suspend fun setAudioOutputDriver(driver: String) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[AUDIO_OUTPUT_DRIVER] = driver
+        }
+    }
+
+    suspend fun setDoubleTapSeekSeconds(seconds: Int) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[DOUBLE_TAP_SEEK_SECONDS] = seconds
+        }
+    }
+
+    suspend fun setSwipeToSeek(enabled: Boolean) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[SWIPE_TO_SEEK] = enabled
+        }
+    }
+
+    suspend fun setBrightnessSwipe(enabled: Boolean) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[BRIGHTNESS_SWIPE] = enabled
+        }
+    }
+
+    suspend fun setVolumeSwipe(enabled: Boolean) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[VOLUME_SWIPE] = enabled
+        }
+    }
+
+    suspend fun setLongPress2x(enabled: Boolean) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[LONG_PRESS_2X] = enabled
+        }
+    }
+
+    suspend fun setGestureSensitivity(sensitivity: String) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[GESTURE_SENSITIVITY] = sensitivity
+        }
+    }
+
+    suspend fun setBackgroundPlay(mode: String) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[BACKGROUND_PLAY] = mode
+        }
+    }
 }
+

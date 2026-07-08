@@ -76,6 +76,7 @@ class PlayerActivity : ComponentActivity() {
 
     /** The URI string of the currently loaded file — used as the resume key. */
     private var currentFilePath: String? = null
+    private var currentBackgroundPlayPref: String = UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,6 +107,29 @@ class PlayerActivity : ComponentActivity() {
 
                 val resumePlaybackPref by viewModel.resumePlayback.collectAsStateWithLifecycle(
                     initialValue = UserPreferencesRepository.DEFAULT_RESUME_PLAYBACK
+                )
+                val backgroundPlayPref by viewModel.backgroundPlay.collectAsStateWithLifecycle(
+                    initialValue = UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY
+                )
+                currentBackgroundPlayPref = backgroundPlayPref
+
+                val doubleTapSeekSeconds by viewModel.doubleTapSeekSeconds.collectAsStateWithLifecycle(
+                    initialValue = UserPreferencesRepository.DEFAULT_DOUBLE_TAP_SEEK_SECONDS
+                )
+                val swipeToSeek by viewModel.swipeToSeek.collectAsStateWithLifecycle(
+                    initialValue = UserPreferencesRepository.DEFAULT_SWIPE_TO_SEEK
+                )
+                val brightnessSwipe by viewModel.brightnessSwipe.collectAsStateWithLifecycle(
+                    initialValue = UserPreferencesRepository.DEFAULT_BRIGHTNESS_SWIPE
+                )
+                val volumeSwipe by viewModel.volumeSwipe.collectAsStateWithLifecycle(
+                    initialValue = UserPreferencesRepository.DEFAULT_VOLUME_SWIPE
+                )
+                val longPress2x by viewModel.longPress2x.collectAsStateWithLifecycle(
+                    initialValue = UserPreferencesRepository.DEFAULT_LONG_PRESS_2X
+                )
+                val gestureSensitivity by viewModel.gestureSensitivity.collectAsStateWithLifecycle(
+                    initialValue = UserPreferencesRepository.DEFAULT_GESTURE_SENSITIVITY
                 )
 
                 var pendingResumeMs by remember { mutableStateOf(0L) }
@@ -207,6 +231,12 @@ class PlayerActivity : ComponentActivity() {
                     onSubtitleAppearanceReset = { viewModel.resetSubtitleAppearance() },
                     currentZoom = playerState.videoZoom,
                     onZoomChange = viewModel::setVideoZoom,
+                    doubleTapSeekSeconds = doubleTapSeekSeconds,
+                    swipeToSeek = swipeToSeek,
+                    brightnessSwipe = brightnessSwipe,
+                    volumeSwipe = volumeSwipe,
+                    longPress2x = longPress2x,
+                    gestureSensitivity = gestureSensitivity,
                 )
 
                 if (showSettings) {
@@ -222,6 +252,22 @@ class PlayerActivity : ComponentActivity() {
                     val decodeMode by viewModel.decodeModePreference.collectAsStateWithLifecycle(
                         initialValue = UserPreferencesRepository.DEFAULT_DECODE_MODE
                     )
+                    val debandFilter by viewModel.debandFilter.collectAsStateWithLifecycle(
+                        initialValue = UserPreferencesRepository.DEFAULT_DEBAND_FILTER
+                    )
+                    val videoScale by viewModel.videoScale.collectAsStateWithLifecycle(
+                        initialValue = UserPreferencesRepository.DEFAULT_VIDEO_SCALE
+                    )
+                    val volumeBoost by viewModel.volumeBoost.collectAsStateWithLifecycle(
+                        initialValue = UserPreferencesRepository.DEFAULT_VOLUME_BOOST
+                    )
+                    val pitchCorrection by viewModel.pitchCorrection.collectAsStateWithLifecycle(
+                        initialValue = UserPreferencesRepository.DEFAULT_PITCH_CORRECTION
+                    )
+                    val audioOutputDriver by viewModel.audioOutputDriver.collectAsStateWithLifecycle(
+                        initialValue = UserPreferencesRepository.DEFAULT_AUDIO_OUTPUT_DRIVER
+                    )
+
                     SettingsScreen(
                         preferredSubtitleLang = preferredSubtitleLang,
                         onSubtitleLangChange = { viewModel.setPreferredSubtitleLanguage(it) },
@@ -233,7 +279,31 @@ class PlayerActivity : ComponentActivity() {
                         onResumePlaybackChange = { viewModel.setResumePlayback(it) },
                         decodeMode = decodeMode,
                         onDecodeModeChange = { viewModel.setDecodeModeStringPreference(it) },
-                        onBack = { showSettings = false }
+                        onBack = { showSettings = false },
+                        debandFilter = debandFilter,
+                        onDebandFilterChange = { viewModel.setDebandFilter(it) },
+                        videoScale = videoScale,
+                        onVideoScaleChange = { viewModel.setVideoScale(it) },
+                        volumeBoost = volumeBoost,
+                        onVolumeBoostChange = { viewModel.setVolumeBoost(it) },
+                        pitchCorrection = pitchCorrection,
+                        onPitchCorrectionChange = { viewModel.setPitchCorrection(it) },
+                        audioOutputDriver = audioOutputDriver,
+                        onAudioOutputDriverChange = { viewModel.setAudioOutputDriver(it) },
+                        doubleTapSeekSeconds = doubleTapSeekSeconds,
+                        onDoubleTapSeekSecondsChange = { viewModel.setDoubleTapSeekSeconds(it) },
+                        swipeToSeek = swipeToSeek,
+                        onSwipeToSeekChange = { viewModel.setSwipeToSeek(it) },
+                        brightnessSwipe = brightnessSwipe,
+                        onBrightnessSwipeChange = { viewModel.setBrightnessSwipe(it) },
+                        volumeSwipe = volumeSwipe,
+                        onVolumeSwipeChange = { viewModel.setVolumeSwipe(it) },
+                        longPress2x = longPress2x,
+                        onLongPress2xChange = { viewModel.setLongPress2x(it) },
+                        gestureSensitivity = gestureSensitivity,
+                        onGestureSensitivityChange = { viewModel.setGestureSensitivity(it) },
+                        backgroundPlay = backgroundPlayPref,
+                        onBackgroundPlayChange = { viewModel.setBackgroundPlay(it) }
                     )
                 }
             }
@@ -246,6 +316,31 @@ class PlayerActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.data?.let { viewModel.loadAndPlay(it) }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        when (currentBackgroundPlayPref) {
+            "off" -> {
+                viewModel.pausePlayback()
+            }
+            "always" -> {
+                // Do nothing — playback continues when minimized/backgrounded
+            }
+            "headphones_only" -> {
+                val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+                val headphonesConnected = audioManager?.let { am ->
+                    @Suppress("DEPRECATION")
+                    am.isWiredHeadsetOn || am.isBluetoothA2dpOn
+                } ?: false
+                if (!headphonesConnected) {
+                    viewModel.pausePlayback()
+                }
+            }
+            else -> {
+                viewModel.pausePlayback()
+            }
+        }
     }
 
     override fun onDestroy() {

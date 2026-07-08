@@ -41,6 +41,12 @@ fun PlayerScreen(
     onSubtitleAppearanceReset: () -> Unit = {},
     currentZoom: Float = 0f,
     onZoomChange: (Float) -> Unit = {},
+    doubleTapSeekSeconds: Int = 10,
+    swipeToSeek: Boolean = true,
+    brightnessSwipe: Boolean = true,
+    volumeSwipe: Boolean = true,
+    longPress2x: Boolean = true,
+    gestureSensitivity: String = "normal",
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -87,6 +93,12 @@ fun PlayerScreen(
             onSubtitleAppearanceReset = onSubtitleAppearanceReset,
             currentZoom = currentZoom,
             onZoomChange = onZoomChange,
+            doubleTapSeekSeconds = doubleTapSeekSeconds,
+            swipeToSeek = swipeToSeek,
+            brightnessSwipe = brightnessSwipe,
+            volumeSwipe = volumeSwipe,
+            longPress2x = longPress2x,
+            gestureSensitivity = gestureSensitivity,
             modifier = Modifier.fillMaxSize()
         )
     }

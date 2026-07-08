@@ -27,6 +27,42 @@ class SettingsViewModel(
     val decodeMode = userPreferencesRepository.decodeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_DECODE_MODE)
 
+    val debandFilter = userPreferencesRepository.debandFilter
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_DEBAND_FILTER)
+
+    val videoScale = userPreferencesRepository.videoScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_VIDEO_SCALE)
+
+    val volumeBoost = userPreferencesRepository.volumeBoost
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_VOLUME_BOOST)
+
+    val pitchCorrection = userPreferencesRepository.pitchCorrection
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_PITCH_CORRECTION)
+
+    val audioOutputDriver = userPreferencesRepository.audioOutputDriver
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_AUDIO_OUTPUT_DRIVER)
+
+    val doubleTapSeekSeconds = userPreferencesRepository.doubleTapSeekSeconds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_DOUBLE_TAP_SEEK_SECONDS)
+
+    val swipeToSeek = userPreferencesRepository.swipeToSeek
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_SWIPE_TO_SEEK)
+
+    val brightnessSwipe = userPreferencesRepository.brightnessSwipe
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_BRIGHTNESS_SWIPE)
+
+    val volumeSwipe = userPreferencesRepository.volumeSwipe
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_VOLUME_SWIPE)
+
+    val longPress2x = userPreferencesRepository.longPress2x
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_LONG_PRESS_2X)
+
+    val gestureSensitivity = userPreferencesRepository.gestureSensitivity
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_GESTURE_SENSITIVITY)
+
+    val backgroundPlay = userPreferencesRepository.backgroundPlay
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY)
+
     fun setSubtitleLanguage(lang: String) {
         viewModelScope.launch {
             userPreferencesRepository.setSubtitleLanguage(lang)
@@ -54,6 +90,78 @@ class SettingsViewModel(
     fun setDecodeMode(mpvValue: String) {
         viewModelScope.launch {
             userPreferencesRepository.setDecodeMode(mpvValue)
+        }
+    }
+
+    fun setDebandFilter(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDebandFilter(enabled)
+        }
+    }
+
+    fun setVideoScale(scale: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.setVideoScale(scale)
+        }
+    }
+
+    fun setVolumeBoost(boost: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setVolumeBoost(boost)
+        }
+    }
+
+    fun setPitchCorrection(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPitchCorrection(enabled)
+        }
+    }
+
+    fun setAudioOutputDriver(driver: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAudioOutputDriver(driver)
+        }
+    }
+
+    fun setDoubleTapSeekSeconds(seconds: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDoubleTapSeekSeconds(seconds)
+        }
+    }
+
+    fun setSwipeToSeek(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setSwipeToSeek(enabled)
+        }
+    }
+
+    fun setBrightnessSwipe(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setBrightnessSwipe(enabled)
+        }
+    }
+
+    fun setVolumeSwipe(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setVolumeSwipe(enabled)
+        }
+    }
+
+    fun setLongPress2x(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLongPress2x(enabled)
+        }
+    }
+
+    fun setGestureSensitivity(sensitivity: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.setGestureSensitivity(sensitivity)
+        }
+    }
+
+    fun setBackgroundPlay(mode: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.setBackgroundPlay(mode)
         }
     }
 }
