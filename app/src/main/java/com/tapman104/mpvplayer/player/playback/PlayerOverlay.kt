@@ -3,28 +3,32 @@ package com.tapman104.mpvplayer.player.playback
 import android.content.Context
 import android.media.AudioManager
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.tapman104.mpvplayer.player.state.PlayerState
-import com.tapman104.mpvplayer.player.model.DecodeMode
-import kotlinx.coroutines.delay
-import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
-import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
-import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
-import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
-import com.tapman104.mpvplayer.player.controls.PlayerTopBar
 import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
 import com.tapman104.mpvplayer.player.controls.PlayerQuickActions
+import com.tapman104.mpvplayer.player.controls.PlayerTopBar
+import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
+import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
+import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
+import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
+import com.tapman104.mpvplayer.player.model.DecodeMode
+import com.tapman104.mpvplayer.player.state.PlayerState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun PlayerOverlay(
@@ -62,6 +66,11 @@ fun PlayerOverlay(
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var showSubtitleAppearanceDialog by remember { mutableStateOf(false) }
     var showDecodeModeDialog by remember { mutableStateOf(false) }
+    // Drives the animated visibility of the decode-mode dialog independently so
+    // we can play the exit animation before the dialog is removed from composition.
+    var decodeDialogVisible by remember { mutableStateOf(false) }
+    var pendingDecodeMode by remember { mutableStateOf<DecodeMode?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     // Tracks the gesture scrub target in real-time; -1L when not scrubbing.
     // Used to update the bottom seek bar without waiting for the 200ms-throttled playerState.
     var gestureSeekPreviewMs by remember { mutableStateOf(-1L) }
@@ -71,6 +80,15 @@ fun PlayerOverlay(
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         mutableIntStateOf(if (max > 0) (current.toFloat() / max * 100).toInt() else 0)
+    }
+
+    // When the decode dialog is requested, immediately hide the player controls
+    // so the dialog appears on a clean, uncluttered background.
+    LaunchedEffect(showDecodeModeDialog) {
+        if (showDecodeModeDialog) {
+            controlsVisible = false
+            decodeDialogVisible = true
+        }
     }
 
     // Auto-hide controls after 3 s of inactivity. Dialogs suppress auto-hide via the guard
@@ -223,21 +241,46 @@ fun PlayerOverlay(
             )
         }
 
+        // ── DECODE MODE DIALOG (animated) ────────────────────────────────────
         if (showDecodeModeDialog) {
-            LaunchedEffect(Unit) {
-                onPause()
+            LaunchedEffect(Unit) { onPause() }
+
+            AnimatedVisibility(
+                visible = decodeDialogVisible,
+                enter = fadeIn(tween(180)) + scaleIn(
+                    animationSpec = tween(180),
+                    initialScale = 0.92f,
+                    transformOrigin = TransformOrigin.Center
+                ),
+                exit = fadeOut(tween(200)) + scaleOut(
+                    animationSpec = tween(200),
+                    targetScale = 0.88f,
+                    transformOrigin = TransformOrigin.Center
+                )
+            ) {
+                DecodeModePicker(
+                    current = playerState.decodeMode,
+                    onSelect = { mode ->
+                        pendingDecodeMode = mode
+                        // Trigger exit animation; fire the actual switch after it finishes.
+                        coroutineScope.launch {
+                            decodeDialogVisible = false
+                            delay(220L)   // slightly longer than exit tween to guarantee completion
+                            onCycleDecodeMode(mode)   // ViewModel delays 150 ms then switches hwdec + resumes
+                            showDecodeModeDialog = false
+                            pendingDecodeMode = null
+                        }
+                    },
+                    onDismiss = {
+                        coroutineScope.launch {
+                            decodeDialogVisible = false
+                            delay(220L)
+                            showDecodeModeDialog = false
+                            onPlay()   // Player was explicitly paused; resume it.
+                        }
+                    }
+                )
             }
-            DecodeModePicker(
-                current = playerState.decodeMode,
-                onSelect = { mode ->
-                    onCycleDecodeMode(mode)   // fires setHwdec + resume atomically after 150 ms
-                    showDecodeModeDialog = false
-                },
-                onDismiss = {
-                    showDecodeModeDialog = false
-                    onPlay()  // Player was explicitly paused; resume it.
-                }
-            )
         }
     }
 }
