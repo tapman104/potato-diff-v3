@@ -283,10 +283,10 @@ class PlayerViewModel(
             DecodeMode.HWPlus -> "mediacodec-copy"
             DecodeMode.SW     -> "no"
         }
+        controller.executor.setHwdec(mpvMode)
+        if (resumeAfter) controller.executor.play()
         viewModelScope.launch {
-            delay(150)
-            controller.executor.setHwdec(mpvMode)
-            if (resumeAfter) controller.executor.play()
+            preferencesRepository.setDecodeMode(mpvMode)
         }
     }
 
