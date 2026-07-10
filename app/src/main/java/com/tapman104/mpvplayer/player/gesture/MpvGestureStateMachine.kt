@@ -619,7 +619,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         x: Float,
         y: Float
     ) {
-        val stepSeekSec = seekDurationSec
+        val stepSeekSec = MULTI_TAP_SEEK_CURVE_SEC.getOrElse(newTapCount - 1) { seekDurationSec }
         val isForward = region == TapRegion.RIGHT
         val wasForward = state?.let { !it.isReverseDirection } ?: isForward
 

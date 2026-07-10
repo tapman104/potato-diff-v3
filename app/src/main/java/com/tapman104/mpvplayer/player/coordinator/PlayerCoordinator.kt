@@ -5,8 +5,15 @@ import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 
 class PlayerCoordinator(
     private val viewModel: PlayerViewModel,
-    private val overlay: OverlayController,
+    private var overlay: OverlayController = OverlayController.NO_OP,
 ) : MpvPlayerController {
+
+    private var preOverrideSpeed: Float = 1f
+    private var isSpeedOverridden: Boolean = false
+
+    fun attachOverlay(overlay: OverlayController) {
+        this.overlay = overlay
+    }
 
     // --- state queries ---
     override val durationMs get() = viewModel.playerState.value.durationMs
@@ -34,9 +41,19 @@ class PlayerCoordinator(
     override fun seekBackward(offsetMs: Long) = viewModel.seekRelative(-offsetMs)
     override fun seekGesture(positionMs: Long) = viewModel.seekGesture(positionMs)
     override fun seekCommit(positionMs: Long) = viewModel.seekCommit(positionMs)
-    override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) =
+    override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
+        if (!isSpeedOverridden) {
+            preOverrideSpeed = playbackSpeed
+            isSpeedOverridden = true
+        }
         viewModel.setSpeed(targetSpeed)
-    override fun restorePlaybackSpeed() {}
+    }
+    override fun restorePlaybackSpeed() {
+        if (isSpeedOverridden) {
+            viewModel.setSpeed(preOverrideSpeed)
+            isSpeedOverridden = false
+        }
+    }
     override fun setVolume(volume: Float) = viewModel.setVolume(volume)
     override fun setBrightness(brightness: Float) {}
     override fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) =

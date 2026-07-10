@@ -54,7 +54,6 @@ fun PlayerOverlay(
     onSubtitleSizeChange: (Float) -> Unit,
     onSubtitlePositionChange: (Float) -> Unit,
     onSubtitleAppearanceReset: () -> Unit,
-    currentZoom: Float = 0f,
     doubleTapSeekSeconds: Int = 10,
     swipeToSeek: Boolean = true,
     brightnessSwipe: Boolean = true,
@@ -162,7 +161,7 @@ fun PlayerOverlay(
                 volumePercentage = it
                 coordinator?.setVolume(it.toFloat())
             },
-            currentZoom = currentZoom,
+            currentZoom = coordinator?.currentZoomLog2 ?: 0f,
             onZoomChange = { zoom ->
                 coordinator?.setZoomAndPan(zoom, coordinator.currentPanX, coordinator.currentPanY)
             },

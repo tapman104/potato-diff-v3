@@ -17,4 +17,25 @@ interface OverlayController {
     fun triggerSingleTapAction()
     fun scheduleTimer(delayMs: Long, action: () -> Unit): Any
     fun cancelTimer(timerId: Any?)
+
+    companion object {
+        val NO_OP = object : OverlayController {
+            override fun showVolumeOverlay(percent: Int) {}
+            override fun hideVolumeOverlay() {}
+            override fun showBrightnessOverlay(percent: Int) {}
+            override fun hideBrightnessOverlay() {}
+            override fun showSpeedOverlay(speed: Float, sliderIndex: Int?) {}
+            override fun hideSpeedOverlay() {}
+            override fun showHorizontalSeekOverlay(currentLabel: String, deltaLabel: String, targetMs: Long) {}
+            override fun hideHorizontalSeekOverlay(delayMs: Long) {}
+            override fun showDoubleTapSeekOverlay(amountSec: Int, isForward: Boolean, label: String) {}
+            override fun hideDoubleTapSeekOverlay() {}
+            override fun showPinchZoomOverlay(zoomPercent: Int) {}
+            override fun hidePinchZoomOverlay() {}
+            override fun showTapFeedback(x: Float, y: Float) {}
+            override fun triggerSingleTapAction() {}
+            override fun scheduleTimer(delayMs: Long, action: () -> Unit): Any = Any()
+            override fun cancelTimer(timerId: Any?) {}
+        }
+    }
 }

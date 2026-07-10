@@ -36,7 +36,7 @@ class PlayerActivity : ComponentActivity() {
         PlayerViewModelFactory.create(application, mpvController)
     }
 
-    private var coordinator: PlayerCoordinator? by mutableStateOf(null)
+    private lateinit var coordinator: PlayerCoordinator
 
     private lateinit var surfaceView: SurfaceView
 
@@ -101,6 +101,8 @@ class PlayerActivity : ComponentActivity() {
 
         // Register MpvSurface as the holder callback BEFORE setContent
         surfaceView.holder.addCallback(viewModel.controller.surface)
+
+        coordinator = PlayerCoordinator(viewModel)
 
         setContent {
             MpvPlayerTheme {
@@ -184,7 +186,7 @@ class PlayerActivity : ComponentActivity() {
                 PlayerScreen(
                     coordinator = coordinator,
                     onCoordinatorReady = { overlayImpl ->
-                        coordinator = PlayerCoordinator(viewModel, overlayImpl)
+                        coordinator.attachOverlay(overlayImpl)
                     },
                     fileName = playlistState.currentUri
                         ?.let { UriResolver.getDisplayName(applicationContext, Uri.parse(it)) }
@@ -215,7 +217,6 @@ class PlayerActivity : ComponentActivity() {
                     onSubtitleSizeChange = { viewModel.setSubtitleSize(it) },
                     onSubtitlePositionChange = { viewModel.setSubtitlePosition(it) },
                     onSubtitleAppearanceReset = { viewModel.resetSubtitleAppearance() },
-                    currentZoom = playerState.videoZoom,
                     doubleTapSeekSeconds = doubleTapSeekSeconds,
                     swipeToSeek = swipeToSeek,
                     brightnessSwipe = brightnessSwipe,
