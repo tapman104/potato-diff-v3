@@ -1,19 +1,20 @@
 package com.tapman104.mpvplayer.player.controls
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Audiotrack
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ClosedCaption
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.filled.MenuOpen
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.outlined.Audiotrack
+import androidx.compose.material.icons.outlined.ClosedCaption
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,12 +36,6 @@ fun PlayerQuickActions(
 
     val buttonColors = PlayerControlsStyles.quickActionButtonColors()
     val buttonBorder = PlayerControlsStyles.quickActionButtonBorder()
-
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (expanded) 0f else 180f,
-        animationSpec = tween(PlayerControlsStyles.ANIM_DURATION_MS),
-        label = "ChevronRotation"
-    )
 
     Row(
         modifier = modifier,
@@ -70,7 +65,7 @@ fun PlayerQuickActions(
                     border = buttonBorder
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Audiotrack,
+                        imageVector = Icons.Outlined.Audiotrack,
                         contentDescription = "Audio track",
                         tint = Color.White.copy(alpha = 0.95f),
                         modifier = Modifier.size(18.dp)
@@ -84,7 +79,7 @@ fun PlayerQuickActions(
                     border = buttonBorder
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.ClosedCaption,
+                        imageVector = Icons.Outlined.ClosedCaption,
                         contentDescription = "Subtitle track",
                         tint = Color.White.copy(alpha = 0.95f),
                         modifier = Modifier.size(18.dp)
@@ -122,7 +117,7 @@ fun PlayerQuickActions(
                     border = buttonBorder
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.MoreVert,
+                        imageVector = Icons.Outlined.MoreVert,
                         contentDescription = "More options",
                         tint = Color.White.copy(alpha = 0.95f),
                         modifier = Modifier.size(18.dp)
@@ -132,20 +127,28 @@ fun PlayerQuickActions(
         }
 
         // Always-visible collapse/expand toggle
-        OutlinedIconButton(
-            onClick = { expanded = !expanded },
-            modifier = Modifier.size(48.dp).glassButtonShadow(),
-            colors = buttonColors,
-            border = buttonBorder
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .background(
+                    color = if (expanded) Color.Transparent else Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(if (expanded) 0.dp else 2.dp)
         ) {
-            Icon(
-                imageVector = Icons.Filled.ChevronLeft,
-                contentDescription = if (expanded) "Collapse" else "Expand",
-                tint = Color.White.copy(alpha = 0.95f),
-                modifier = Modifier
-                    .size(22.dp)
-                    .rotate(chevronRotation)
-            )
+            OutlinedIconButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.size(48.dp).glassButtonShadow(),
+                colors = buttonColors,
+                border = buttonBorder
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.AutoMirrored.Filled.MenuOpen else Icons.Filled.Menu,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = Color.White.copy(alpha = 0.95f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
