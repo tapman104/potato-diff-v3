@@ -162,10 +162,9 @@ class MpvOptionsConfigurator(
         }
 
         // Cap demuxer cache for mobile to prevent memory issues.
-        // cacheMegs * 1024 * 1024 converts MiB to bytes. Use Long to prevent overflow.
-        val cacheBytes = (general.cacheMegs.toLong() * 1024L * 1024L).toString()
-        MPVLib.setOptionString("demuxer-max-bytes", cacheBytes)
-        MPVLib.setOptionString("demuxer-max-back-bytes", cacheBytes)
+        MPVLib.setOptionString("demuxer-max-bytes", "50MiB")
+        MPVLib.setOptionString("demuxer-max-back-bytes", "20MiB")
+        MPVLib.setOptionString("cache-secs", "30")
 
         val logLevel = if (general.verboseLogging) "v" else "warn"
         MPVLib.setOptionString("msg-level", "all=$logLevel")

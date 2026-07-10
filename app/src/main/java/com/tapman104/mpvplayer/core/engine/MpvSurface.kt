@@ -51,8 +51,10 @@ class MpvSurface(private val executor: MpvCommandExecutor) : SurfaceHolder.Callb
         attachSurfaceInternal(holder.surface)
         if (width > 0 && height > 0) {
             val size = "${width}x${height}"
+            val vo = voInUse
             executor.execute {
                 runCatching { MPVLib.setPropertyString("android-surface-size", size) }
+                runCatching { MPVLib.setPropertyString("vo", vo) }
             }
         }
     }

@@ -122,7 +122,15 @@ class MpvCommandExecutor {
 
     fun loadFile(path: String) {
         execute {
-            MPVLib.command("loadfile", path)
+            MPVLib.command("loadfile", path, "replace")
+            MPVLib.setPropertyString("demuxer-max-bytes", "50MiB")
+            MPVLib.setPropertyString("demuxer-max-back-bytes", "20MiB")
+        }
+    }
+
+    fun stop() {
+        execute {
+            MPVLib.command("stop")
         }
     }
 

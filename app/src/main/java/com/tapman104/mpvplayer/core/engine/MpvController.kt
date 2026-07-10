@@ -44,6 +44,11 @@ class MpvController(private val context: Context) {
                 // Initialize MPV
                 MPVLib.init()
 
+                // Cap demuxer cache properties explicitly post-init before first loadfile
+                MPVLib.setPropertyString("demuxer-max-bytes", "50MiB")
+                MPVLib.setPropertyString("demuxer-max-back-bytes", "20MiB")
+                MPVLib.setPropertyString("cache-secs", "30")
+
                 // Configure post-init options
                 configurator.postInitOptions()
 
