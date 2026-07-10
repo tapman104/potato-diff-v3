@@ -8,25 +8,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
+import com.tapman104.mpvplayer.player.coordinator.OverlayController
+import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.model.DecodeMode
 
 @Composable
 fun PlayerScreen(
+    coordinator: MpvPlayerController? = null,
+    onCoordinatorReady: ((OverlayController) -> Unit)? = null,
     playerState: PlayerState,
     surfaceView: SurfaceView,
     onTogglePlay: () -> Unit,
-    onSeek: (Long, Boolean) -> Unit,
-    onSeekGesture: (Long) -> Unit = {},
-    onSeekCommit: (Long) -> Unit = {},
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
     onOpenFile: () -> Unit,
     fileName: String = "Unknown",
-    onSeekForward: (Long) -> Unit = {},
-    onSeekBackward: (Long) -> Unit = {},
-    onSpeedOverride: (Float) -> Unit = {},
-    onSpeedRestore: () -> Unit = {},
     onAudioTrackSelected: (Int) -> Unit = {},
     onAddAudioClick: () -> Unit = {},
     onSubtitleTrackSelected: (Int) -> Unit = {},
@@ -40,7 +37,6 @@ fun PlayerScreen(
     onSubtitlePositionChange: (Float) -> Unit = {},
     onSubtitleAppearanceReset: () -> Unit = {},
     currentZoom: Float = 0f,
-    onZoomChange: (Float) -> Unit = {},
     doubleTapSeekSeconds: Int = 10,
     swipeToSeek: Boolean = true,
     brightnessSwipe: Boolean = true,
@@ -66,19 +62,14 @@ fun PlayerScreen(
         )
 
         PlayerOverlay(
+            coordinator = coordinator,
+            onCoordinatorReady = onCoordinatorReady,
             fileName = fileName,
             playerState = playerState,
             onOpenFile = onOpenFile,
             initialBrightness = initialBrightness,
             onBrightnessChange = onBrightnessChange,
             onTogglePlay = onTogglePlay,
-            onSeek = onSeek,
-            onSeekGesture = onSeekGesture,
-            onSeekCommit = onSeekCommit,
-            onSeekForward = onSeekForward,
-            onSeekBackward = onSeekBackward,
-            onSpeedOverride = onSpeedOverride,
-            onSpeedRestore = onSpeedRestore,
             onAudioTrackSelected = onAudioTrackSelected,
             onAddAudioClick = onAddAudioClick,
             onSubtitleTrackSelected = onSubtitleTrackSelected,
@@ -92,7 +83,6 @@ fun PlayerScreen(
             onSubtitlePositionChange = onSubtitlePositionChange,
             onSubtitleAppearanceReset = onSubtitleAppearanceReset,
             currentZoom = currentZoom,
-            onZoomChange = onZoomChange,
             doubleTapSeekSeconds = doubleTapSeekSeconds,
             swipeToSeek = swipeToSeek,
             brightnessSwipe = brightnessSwipe,

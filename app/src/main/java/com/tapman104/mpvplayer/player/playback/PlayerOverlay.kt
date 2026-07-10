@@ -20,11 +20,13 @@ import androidx.compose.ui.unit.dp
 import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
 import com.tapman104.mpvplayer.player.controls.PlayerQuickActions
 import com.tapman104.mpvplayer.player.controls.PlayerTopBar
+import com.tapman104.mpvplayer.player.coordinator.OverlayController
 import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
 import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
+import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.model.DecodeMode
 import com.tapman104.mpvplayer.player.state.PlayerState
 import kotlinx.coroutines.delay
@@ -32,19 +34,14 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun PlayerOverlay(
+    coordinator: MpvPlayerController? = null,
+    onCoordinatorReady: ((OverlayController) -> Unit)? = null,
     fileName: String,
     playerState: PlayerState,
     onOpenFile: () -> Unit,
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
     onTogglePlay: () -> Unit,
-    onSeek: (Long, Boolean) -> Unit,
-    onSeekGesture: (Long) -> Unit = {},
-    onSeekCommit: (Long) -> Unit = {},
-    onSeekForward: (Long) -> Unit,
-    onSeekBackward: (Long) -> Unit,
-    onSpeedOverride: (Float) -> Unit,
-    onSpeedRestore: () -> Unit,
     onAudioTrackSelected: (Int) -> Unit,
     onAddAudioClick: () -> Unit,
     onSubtitleTrackSelected: (Int) -> Unit,
@@ -58,7 +55,6 @@ fun PlayerOverlay(
     onSubtitlePositionChange: (Float) -> Unit,
     onSubtitleAppearanceReset: () -> Unit,
     currentZoom: Float = 0f,
-    onZoomChange: (Float) -> Unit = {},
     doubleTapSeekSeconds: Int = 10,
     swipeToSeek: Boolean = true,
     brightnessSwipe: Boolean = true,
@@ -88,6 +84,39 @@ fun PlayerOverlay(
         mutableIntStateOf(if (max > 0) (current.toFloat() / max * 100).toInt() else 0)
     }
 
+    val overlayImpl = remember {
+        object : OverlayController {
+            override fun showVolumeOverlay(percent: Int) { volumePercentage = percent }
+            override fun hideVolumeOverlay() { /* optionally hide after delay */ }
+            override fun showBrightnessOverlay(percent: Int) { /* drive brightness state if it exists */ }
+            override fun hideBrightnessOverlay() {}
+            override fun showHorizontalSeekOverlay(currentLabel: String, deltaLabel: String, targetMs: Long) {
+                gestureSeekPreviewMs = targetMs
+            }
+            override fun hideHorizontalSeekOverlay(delayMs: Long) {
+                coroutineScope.launch { delay(delayMs); gestureSeekPreviewMs = -1L }
+            }
+            override fun triggerSingleTapAction() { controlsVisible = !controlsVisible }
+            override fun showDoubleTapSeekOverlay(amountSec: Int, isForward: Boolean, label: String) {}
+            override fun hideDoubleTapSeekOverlay() {}
+            override fun showSpeedOverlay(speed: Float, sliderIndex: Int?) {}
+            override fun hideSpeedOverlay() {}
+            override fun showPinchZoomOverlay(zoomPercent: Int) {}
+            override fun hidePinchZoomOverlay() {}
+            override fun showTapFeedback(x: Float, y: Float) {}
+            override fun scheduleTimer(delayMs: Long, action: () -> Unit): Any {
+                return coroutineScope.launch { delay(delayMs); action() }
+            }
+            override fun cancelTimer(timerId: Any?) {
+                (timerId as? kotlinx.coroutines.Job)?.cancel()
+            }
+        }
+    }
+
+    LaunchedEffect(overlayImpl) {
+        onCoordinatorReady?.invoke(overlayImpl)
+    }
+
     // When the decode dialog is requested, immediately hide the player controls
     // so the dialog appears on a clean, uncluttered background.
     LaunchedEffect(showDecodeModeDialog) {
@@ -109,29 +138,34 @@ fun PlayerOverlay(
     Box(modifier = modifier.fillMaxSize()) {
 
         GestureHandler(
-            currentPositionMs = { playerState.currentPositionMs },
-            durationMs = { playerState.durationMs },
-            isPlaying = playerState.isPlaying,
-            currentSpeed = { playerState.speed },
+            currentPositionMs = { coordinator?.currentPositionMs ?: playerState.currentPositionMs },
+            durationMs = { coordinator?.durationMs ?: playerState.durationMs },
+            isPlaying = coordinator?.isPaused?.not() ?: playerState.isPlaying,
+            currentSpeed = { coordinator?.playbackSpeed ?: playerState.speed },
             onSeekPreviewMs = { gestureSeekPreviewMs = it },
-            onSeek = onSeek,
-            onSeekGesture = onSeekGesture,
+            onSeek = { pos, precise -> coordinator?.seekTo(pos, precise) },
+            onSeekGesture = { pos -> coordinator?.seekGesture(pos) },
             onSeekCommit = { posMs ->
                 gestureSeekPreviewMs = -1L
-                onSeekCommit(posMs)
+                coordinator?.seekCommit(posMs)
             },
-            onSeekForward    = onSeekForward,
-            onSeekBackward   = onSeekBackward,
+            onSeekForward    = { coordinator?.seekForward(it) },
+            onSeekBackward   = { coordinator?.seekBackward(it) },
             onToggleControls = { controlsVisible = !controlsVisible },
-            onSpeedOverride  = onSpeedOverride,
-            onSpeedRestore   = onSpeedRestore,
+            onSpeedOverride  = { coordinator?.setPlaybackSpeedRamped(it) },
+            onSpeedRestore   = { coordinator?.restorePlaybackSpeed() },
             modifier         = Modifier.fillMaxSize(),
             initialBrightness = initialBrightness,
             onBrightnessChange = onBrightnessChange,
             volumePercentage = volumePercentage,
-            onVolumeChange = { volumePercentage = it },
+            onVolumeChange = {
+                volumePercentage = it
+                coordinator?.setVolume(it.toFloat())
+            },
             currentZoom = currentZoom,
-            onZoomChange = onZoomChange,
+            onZoomChange = { zoom ->
+                coordinator?.setZoomAndPan(zoom, coordinator.currentPanX, coordinator.currentPanY)
+            },
             doubleTapSeekSeconds = doubleTapSeekSeconds,
             swipeToSeek = swipeToSeek,
             brightnessSwipe = brightnessSwipe,
@@ -184,8 +218,11 @@ fun PlayerOverlay(
                 durationMs = playerState.durationMs,
                 gestureSeekPreviewMs = gestureSeekPreviewMs,
                 onTogglePlay = onTogglePlay,
-                onSeek = { pos -> onSeekCommit(pos) },
-                onSeekGesture = onSeekGesture,
+                onSeek = { pos ->
+                    gestureSeekPreviewMs = -1L
+                    coordinator?.seekCommit(pos)
+                },
+                onSeekGesture = { pos -> coordinator?.seekGesture(pos) },
                 onSeekPreviewMs = { gestureSeekPreviewMs = it }
             )
         }

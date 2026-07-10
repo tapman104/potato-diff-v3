@@ -1,4 +1,4 @@
-package com.tapman104.mpvplayer.player.gesture
+package com.tapman104.mpvplayer.player.coordinator
 
 interface OverlayController {
     fun showVolumeOverlay(percent: Int)

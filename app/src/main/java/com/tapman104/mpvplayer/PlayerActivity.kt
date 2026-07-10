@@ -26,21 +26,17 @@ import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.core.engine.MpvController
-import com.tapman104.mpvplayer.player.gesture.OverlayController
-import com.tapman104.mpvplayer.player.gesture.PlayerCoordinator
+import com.tapman104.mpvplayer.player.coordinator.PlayerCoordinator
 
 
-class PlayerActivity : ComponentActivity(), OverlayController {
+class PlayerActivity : ComponentActivity() {
 
     private val mpvController by lazy { MpvController(applicationContext) }
     private val viewModel: PlayerViewModel by viewModels {
         PlayerViewModelFactory.create(application, mpvController)
     }
 
-    private val overlayControllerImpl: OverlayController get() = this
-    private val coordinator: PlayerCoordinator by lazy {
-        PlayerCoordinator(viewModel, overlayControllerImpl)
-    }
+    private var coordinator: PlayerCoordinator? by mutableStateOf(null)
 
     private lateinit var surfaceView: SurfaceView
 
@@ -140,8 +136,6 @@ class PlayerActivity : ComponentActivity(), OverlayController {
                 )
 
                 var pendingResumeMs by remember { mutableStateOf(0L) }
-                var preOverrideSpeed by remember { mutableFloatStateOf(1f) }
-                var isSpeedOverridden by remember { mutableStateOf(false) }
                 var showSettings by remember { mutableStateOf(false) }
 
                 val initialBrightness = remember {
@@ -153,9 +147,6 @@ class PlayerActivity : ComponentActivity(), OverlayController {
                         currentWindowBrightness
                     }
                 }
-
-                // Capture current speed so we can restore after long-press override
-                val currentSpeed = playerState.speed
 
                 // Dynamically manage screen wake lock and save position on pause
                 val isPlaying = playerState.isPlaying
@@ -191,15 +182,16 @@ class PlayerActivity : ComponentActivity(), OverlayController {
                 }
 
                 PlayerScreen(
+                    coordinator = coordinator,
+                    onCoordinatorReady = { overlayImpl ->
+                        coordinator = PlayerCoordinator(viewModel, overlayImpl)
+                    },
                     fileName = playlistState.currentUri
                         ?.let { UriResolver.getDisplayName(applicationContext, Uri.parse(it)) }
                         ?: "Unknown",
                     playerState = playerState,
                     surfaceView = surfaceView,
                     onTogglePlay = { viewModel.togglePlay() },
-                    onSeek = { pos, precise -> viewModel.seekTo(pos, precise) },
-                    onSeekGesture = { pos -> viewModel.seekGesture(pos) },
-                    onSeekCommit = { pos -> viewModel.onSeekCommitMs(pos) },
                     initialBrightness = initialBrightness,
                     onBrightnessChange = { newBrightness ->
                         val layoutParams = window.attributes
@@ -207,19 +199,6 @@ class PlayerActivity : ComponentActivity(), OverlayController {
                         window.attributes = layoutParams
                     },
                     onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
-                    onSeekForward  = { offsetMs -> viewModel.seekRelative(offsetMs) },
-                    onSeekBackward = { offsetMs -> viewModel.seekRelative(-offsetMs) },
-                    onSpeedOverride = { speed ->
-                        if (!isSpeedOverridden) {
-                            preOverrideSpeed = currentSpeed
-                            isSpeedOverridden = true
-                        }
-                        viewModel.setSpeed(speed)
-                    },
-                    onSpeedRestore = {
-                        isSpeedOverridden = false
-                        viewModel.setSpeed(preOverrideSpeed)
-                    },
                     onAudioTrackSelected = { viewModel.setAudioTrack(it) },
                     onAddAudioClick = { audioPickerLauncher.launch(arrayOf("audio/*")) },
                     onSubtitleTrackSelected = { viewModel.setSubtitleTrack(it) },
@@ -237,7 +216,6 @@ class PlayerActivity : ComponentActivity(), OverlayController {
                     onSubtitlePositionChange = { viewModel.setSubtitlePosition(it) },
                     onSubtitleAppearanceReset = { viewModel.resetSubtitleAppearance() },
                     currentZoom = playerState.videoZoom,
-                    onZoomChange = viewModel::setVideoZoom,
                     doubleTapSeekSeconds = doubleTapSeekSeconds,
                     swipeToSeek = swipeToSeek,
                     brightnessSwipe = brightnessSwipe,
@@ -354,22 +332,4 @@ class PlayerActivity : ComponentActivity(), OverlayController {
         super.onDestroy()
         unregisterReceiver(screenOffReceiver)
     }
-
-    // OverlayController implementation
-    override fun showVolumeOverlay(percent: Int) {}
-    override fun hideVolumeOverlay() {}
-    override fun showBrightnessOverlay(percent: Int) {}
-    override fun hideBrightnessOverlay() {}
-    override fun showSpeedOverlay(speed: Float, sliderIndex: Int?) {}
-    override fun hideSpeedOverlay() {}
-    override fun showHorizontalSeekOverlay(currentLabel: String, deltaLabel: String, targetMs: Long) {}
-    override fun hideHorizontalSeekOverlay(delayMs: Long) {}
-    override fun showDoubleTapSeekOverlay(amountSec: Int, isForward: Boolean, label: String) {}
-    override fun hideDoubleTapSeekOverlay() {}
-    override fun showPinchZoomOverlay(zoomPercent: Int) {}
-    override fun hidePinchZoomOverlay() {}
-    override fun showTapFeedback(x: Float, y: Float) {}
-    override fun triggerSingleTapAction() {}
-    override fun scheduleTimer(delayMs: Long, action: () -> Unit): Any = Any()
-    override fun cancelTimer(timerId: Any?) {}
 }

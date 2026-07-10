@@ -1,5 +1,6 @@
-package com.tapman104.mpvplayer.player.gesture
+package com.tapman104.mpvplayer.player.coordinator
 
+import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 
 class PlayerCoordinator(
