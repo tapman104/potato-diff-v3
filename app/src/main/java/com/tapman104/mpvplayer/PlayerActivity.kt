@@ -27,6 +27,8 @@ import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.core.engine.MpvController
 import com.tapman104.mpvplayer.player.coordinator.PlayerCoordinator
+import com.tapman104.mpvplayer.settings.SettingsViewModel
+import com.tapman104.mpvplayer.settings.SettingsViewModelFactory
 
 
 class PlayerActivity : ComponentActivity() {
@@ -108,7 +110,6 @@ class PlayerActivity : ComponentActivity() {
             MpvPlayerTheme {
                 val playerState by viewModel.playerState.collectAsStateWithLifecycle()
                 val playlistState by viewModel.playlistState.collectAsStateWithLifecycle()
-                val preferredSubtitleLang by viewModel.preferredSubtitleLang.collectAsStateWithLifecycle()
 
                 val resumePlaybackPref by viewModel.resumePlayback.collectAsStateWithLifecycle(
                     initialValue = UserPreferencesRepository.DEFAULT_RESUME_PLAYBACK
@@ -226,70 +227,12 @@ class PlayerActivity : ComponentActivity() {
                 )
 
                 if (showSettings) {
-                    val subtitleSize by viewModel.subtitleSize.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_SUBTITLE_SIZE
-                    )
-                    val subtitlePosition by viewModel.subtitlePosition.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_SUBTITLE_POSITION
-                    )
-                    val resumePlayback by viewModel.resumePlayback.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_RESUME_PLAYBACK
-                    )
-                    val decodeMode by viewModel.decodeModePreference.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_DECODE_MODE
-                    )
-                    val debandFilter by viewModel.debandFilter.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_DEBAND_FILTER
-                    )
-                    val videoScale by viewModel.videoScale.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_VIDEO_SCALE
-                    )
-                    val volumeBoost by viewModel.volumeBoost.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_VOLUME_BOOST
-                    )
-                    val pitchCorrection by viewModel.pitchCorrection.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_PITCH_CORRECTION
-                    )
-                    val audioOutputDriver by viewModel.audioOutputDriver.collectAsStateWithLifecycle(
-                        initialValue = UserPreferencesRepository.DEFAULT_AUDIO_OUTPUT_DRIVER
-                    )
-
+                    val settingsViewModel: SettingsViewModel by viewModels {
+                        SettingsViewModelFactory(UserPreferencesRepository(application))
+                    }
                     SettingsScreen(
-                        preferredSubtitleLang = preferredSubtitleLang,
-                        onSubtitleLangChange = { viewModel.setPreferredSubtitleLanguage(it) },
-                        subtitleSize = subtitleSize,
-                        subtitlePosition = subtitlePosition,
-                        onSubtitleSizeChange = { viewModel.setSubtitleSize(it) },
-                        onSubtitlePositionChange = { viewModel.setSubtitlePosition(it) },
-                        resumePlayback = resumePlayback,
-                        onResumePlaybackChange = { viewModel.setResumePlayback(it) },
-                        decodeMode = decodeMode,
-                        onDecodeModeChange = { viewModel.setDecodeModeStringPreference(it) },
-                        onBack = { showSettings = false },
-                        debandFilter = debandFilter,
-                        onDebandFilterChange = { viewModel.setDebandFilter(it) },
-                        videoScale = videoScale,
-                        onVideoScaleChange = { viewModel.setVideoScale(it) },
-                        volumeBoost = volumeBoost,
-                        onVolumeBoostChange = { viewModel.setVolumeBoost(it) },
-                        pitchCorrection = pitchCorrection,
-                        onPitchCorrectionChange = { viewModel.setPitchCorrection(it) },
-                        audioOutputDriver = audioOutputDriver,
-                        onAudioOutputDriverChange = { viewModel.setAudioOutputDriver(it) },
-                        doubleTapSeekSeconds = doubleTapSeekSeconds,
-                        onDoubleTapSeekSecondsChange = { viewModel.setDoubleTapSeekSeconds(it) },
-                        swipeToSeek = swipeToSeek,
-                        onSwipeToSeekChange = { viewModel.setSwipeToSeek(it) },
-                        brightnessSwipe = brightnessSwipe,
-                        onBrightnessSwipeChange = { viewModel.setBrightnessSwipe(it) },
-                        volumeSwipe = volumeSwipe,
-                        onVolumeSwipeChange = { viewModel.setVolumeSwipe(it) },
-                        longPress2x = longPress2x,
-                        onLongPress2xChange = { viewModel.setLongPress2x(it) },
-                        gestureSensitivity = gestureSensitivity,
-                        onGestureSensitivityChange = { viewModel.setGestureSensitivity(it) },
-                        backgroundPlay = backgroundPlayPref,
-                        onBackgroundPlayChange = { viewModel.setBackgroundPlay(it) }
+                        viewModel = settingsViewModel,
+                        onBack = { showSettings = false }
                     )
                 }
             }

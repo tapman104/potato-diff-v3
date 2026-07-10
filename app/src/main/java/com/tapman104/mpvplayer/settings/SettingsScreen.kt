@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.roundToInt
 
 private sealed interface SettingsNavSection {
@@ -46,55 +48,41 @@ private sealed interface SettingsNavSection {
     data object BackgroundPlay : SettingsNavSection
     data object Subtitles : SettingsNavSection
     data object SubtitleAppearance : SettingsNavSection
+    data object HowToUse : SettingsNavSection
     data object About : SettingsNavSection
 }
 
 @Composable
 fun SettingsScreen(
-    preferredSubtitleLang: String,
-    onSubtitleLangChange: (String) -> Unit,
-    subtitleSize: Float,
-    subtitlePosition: Float,
-    onSubtitleSizeChange: (Float) -> Unit,
-    onSubtitlePositionChange: (Float) -> Unit,
-    resumePlayback: Boolean,
-    onResumePlaybackChange: (Boolean) -> Unit,
-    decodeMode: String,
-    onDecodeModeChange: (String) -> Unit,
+    viewModel: SettingsViewModel,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-    debandFilter: Boolean = false,
-    onDebandFilterChange: (Boolean) -> Unit = {},
-    videoScale: String = "lanczos",
-    onVideoScaleChange: (String) -> Unit = {},
-    volumeBoost: Int = 100,
-    onVolumeBoostChange: (Int) -> Unit = {},
-    pitchCorrection: Boolean = true,
-    onPitchCorrectionChange: (Boolean) -> Unit = {},
-    audioOutputDriver: String = "audiotrack",
-    onAudioOutputDriverChange: (String) -> Unit = {},
-    doubleTapSeekSeconds: Int = 10,
-    onDoubleTapSeekSecondsChange: (Int) -> Unit = {},
-    swipeToSeek: Boolean = true,
-    onSwipeToSeekChange: (Boolean) -> Unit = {},
-    brightnessSwipe: Boolean = true,
-    onBrightnessSwipeChange: (Boolean) -> Unit = {},
-    volumeSwipe: Boolean = true,
-    onVolumeSwipeChange: (Boolean) -> Unit = {},
-    longPress2x: Boolean = true,
-    onLongPress2xChange: (Boolean) -> Unit = {},
-    gestureSensitivity: String = "normal",
-    onGestureSensitivityChange: (String) -> Unit = {},
-    backgroundPlay: String = "off",
-    onBackgroundPlayChange: (String) -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
+    val preferredSubtitleLang by viewModel.subtitleLanguage.collectAsStateWithLifecycle()
+    val subtitleSize by viewModel.subtitleSize.collectAsStateWithLifecycle()
+    val subtitlePosition by viewModel.subtitlePosition.collectAsStateWithLifecycle()
+    val resumePlayback by viewModel.resumePlayback.collectAsStateWithLifecycle()
+    val decodeMode by viewModel.decodeMode.collectAsStateWithLifecycle()
+    val debandFilter by viewModel.debandFilter.collectAsStateWithLifecycle()
+    val videoScale by viewModel.videoScale.collectAsStateWithLifecycle()
+    val volumeBoost by viewModel.volumeBoost.collectAsStateWithLifecycle()
+    val pitchCorrection by viewModel.pitchCorrection.collectAsStateWithLifecycle()
+    val audioOutputDriver by viewModel.audioOutputDriver.collectAsStateWithLifecycle()
+    val doubleTapSeekSeconds by viewModel.doubleTapSeekSeconds.collectAsStateWithLifecycle()
+    val swipeToSeek by viewModel.swipeToSeek.collectAsStateWithLifecycle()
+    val brightnessSwipe by viewModel.brightnessSwipe.collectAsStateWithLifecycle()
+    val volumeSwipe by viewModel.volumeSwipe.collectAsStateWithLifecycle()
+    val longPress2x by viewModel.longPress2x.collectAsStateWithLifecycle()
+    val gestureSensitivity by viewModel.gestureSensitivity.collectAsStateWithLifecycle()
+    val backgroundPlay by viewModel.backgroundPlay.collectAsStateWithLifecycle()
+
     var currentSection by remember { mutableStateOf<SettingsNavSection?>(null) }
 
     when (currentSection) {
         null -> {
             RootSettingsCategoryScreen(
                 resumePlayback = resumePlayback,
-                onResumePlaybackChange = onResumePlaybackChange,
+                onResumePlaybackChange = { viewModel.setResumePlayback(it) },
                 onNavigate = { currentSection = it },
                 onBack = onBack,
                 modifier = modifier
@@ -103,11 +91,11 @@ fun SettingsScreen(
         SettingsNavSection.VideoDecoding -> {
             VideoDecodingCategoryScreen(
                 decodeMode = decodeMode,
-                onDecodeModeChange = onDecodeModeChange,
+                onDecodeModeChange = { viewModel.setDecodeMode(it) },
                 debandFilter = debandFilter,
-                onDebandFilterChange = onDebandFilterChange,
+                onDebandFilterChange = { viewModel.setDebandFilter(it) },
                 videoScale = videoScale,
-                onVideoScaleChange = onVideoScaleChange,
+                onVideoScaleChange = { viewModel.setVideoScale(it) },
                 onBack = { currentSection = null },
                 modifier = modifier
             )
@@ -115,11 +103,11 @@ fun SettingsScreen(
         SettingsNavSection.Audio -> {
             AudioCategoryScreen(
                 volumeBoost = volumeBoost,
-                onVolumeBoostChange = onVolumeBoostChange,
+                onVolumeBoostChange = { viewModel.setVolumeBoost(it) },
                 pitchCorrection = pitchCorrection,
-                onPitchCorrectionChange = onPitchCorrectionChange,
+                onPitchCorrectionChange = { viewModel.setPitchCorrection(it) },
                 audioOutputDriver = audioOutputDriver,
-                onAudioOutputDriverChange = onAudioOutputDriverChange,
+                onAudioOutputDriverChange = { viewModel.setAudioOutputDriver(it) },
                 onBack = { currentSection = null },
                 modifier = modifier
             )
@@ -127,17 +115,17 @@ fun SettingsScreen(
         SettingsNavSection.GesturesControls -> {
             GesturesControlsCategoryScreen(
                 doubleTapSeekSeconds = doubleTapSeekSeconds,
-                onDoubleTapSeekSecondsChange = onDoubleTapSeekSecondsChange,
+                onDoubleTapSeekSecondsChange = { viewModel.setDoubleTapSeekSeconds(it) },
                 swipeToSeek = swipeToSeek,
-                onSwipeToSeekChange = onSwipeToSeekChange,
+                onSwipeToSeekChange = { viewModel.setSwipeToSeek(it) },
                 brightnessSwipe = brightnessSwipe,
-                onBrightnessSwipeChange = onBrightnessSwipeChange,
+                onBrightnessSwipeChange = { viewModel.setBrightnessSwipe(it) },
                 volumeSwipe = volumeSwipe,
-                onVolumeSwipeChange = onVolumeSwipeChange,
+                onVolumeSwipeChange = { viewModel.setVolumeSwipe(it) },
                 longPress2x = longPress2x,
-                onLongPress2xChange = onLongPress2xChange,
+                onLongPress2xChange = { viewModel.setLongPress2x(it) },
                 gestureSensitivity = gestureSensitivity,
-                onGestureSensitivityChange = onGestureSensitivityChange,
+                onGestureSensitivityChange = { viewModel.setGestureSensitivity(it) },
                 onBack = { currentSection = null },
                 modifier = modifier
             )
@@ -145,7 +133,7 @@ fun SettingsScreen(
         SettingsNavSection.BackgroundPlay -> {
             BackgroundPlayCategoryScreen(
                 backgroundPlay = backgroundPlay,
-                onBackgroundPlayChange = onBackgroundPlayChange,
+                onBackgroundPlayChange = { viewModel.setBackgroundPlay(it) },
                 onBack = { currentSection = null },
                 modifier = modifier
             )
@@ -153,7 +141,7 @@ fun SettingsScreen(
         SettingsNavSection.Subtitles -> {
             SubtitlesCategoryScreen(
                 preferredSubtitleLang = preferredSubtitleLang,
-                onSubtitleLangChange = onSubtitleLangChange,
+                onSubtitleLangChange = { viewModel.setSubtitleLanguage(it) },
                 onOpenAppearance = { currentSection = SettingsNavSection.SubtitleAppearance },
                 onBack = { currentSection = null },
                 modifier = modifier
@@ -163,9 +151,16 @@ fun SettingsScreen(
             SubtitleAppearanceSection(
                 subtitleSize = subtitleSize,
                 subtitlePosition = subtitlePosition,
-                onSizeChange = onSubtitleSizeChange,
-                onPositionChange = onSubtitlePositionChange,
-                onBack = { currentSection = SettingsNavSection.Subtitles }
+                onSizeChange = { viewModel.setSubtitleSize(it) },
+                onPositionChange = { viewModel.setSubtitlePosition(it) },
+                onBack = { currentSection = SettingsNavSection.Subtitles },
+                modifier = modifier
+            )
+        }
+        SettingsNavSection.HowToUse -> {
+            HowToUseCategoryScreen(
+                onBack = { currentSection = null },
+                modifier = modifier
             )
         }
         SettingsNavSection.About -> {
@@ -250,6 +245,17 @@ private fun RootSettingsCategoryScreen(
                     title = "Subtitles",
                     subtitle = "Language, size, position, styling",
                     onClick = { onNavigate(SettingsNavSection.Subtitles) }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            SectionHeader(label = "HELP")
+            SettingsCard {
+                CategoryNavigationRow(
+                    icon = Icons.Rounded.TouchApp,
+                    title = "How to Use",
+                    subtitle = "Gesture guide and controls reference",
+                    onClick = { onNavigate(SettingsNavSection.HowToUse) }
                 )
             }
 
@@ -469,6 +475,18 @@ private fun AudioCategoryScreen(
                         ),
                         selectedValue = audioOutputDriver,
                         onSelect = onAudioOutputDriverChange
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    val aoDesc = when (audioOutputDriver) {
+                        "aaudio" -> "AAudio (Android 8+) — lowest latency, recommended for modern devices"
+                        "opensles" -> "OpenSL ES — wider compatibility, use if AAudio has issues"
+                        else -> "AudioTrack — Android default, most compatible"
+                    }
+                    Text(
+                        text = aoDesc,
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
                     )
                 }
             }
@@ -980,6 +998,220 @@ private fun <T> SegmentedChipGroup(
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SubtitleAppearanceSection(
+    subtitleSize: Float,
+    subtitlePosition: Float,
+    onSizeChange: (Float) -> Unit,
+    onPositionChange: (Float) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF111111))
+            .statusBarsPadding()
+    ) {
+        SettingsTopBar(title = "Subtitle Appearance", onBack = onBack)
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF1A1A1A))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Subtitle Size", color = Color.White, fontSize = 15.sp)
+                    Text(
+                        "${"%.1f".format(subtitleSize)}×",
+                        color = Color(0xFF8B5CF6),
+                        fontSize = 13.sp
+                    )
+                }
+                Slider(
+                    value = subtitleSize,
+                    onValueChange = onSizeChange,
+                    valueRange = 0.5f..3.0f,
+                    steps = 9,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color.White,
+                        activeTrackColor = Color(0xFF8B5CF6),
+                        inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF1A1A1A))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                val positionLabel = when {
+                    subtitlePosition >= 0.66f -> "Top"
+                    subtitlePosition >= 0.33f -> "Middle"
+                    else -> "Bottom"
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Subtitle Position", color = Color.White, fontSize = 15.sp)
+                    Text(positionLabel, color = Color(0xFF8B5CF6), fontSize = 13.sp)
+                }
+                Slider(
+                    value = subtitlePosition,
+                    onValueChange = onPositionChange,
+                    valueRange = 0f..1f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color.White,
+                        activeTrackColor = Color(0xFF8B5CF6),
+                        inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GestureRow(
+    gesture: String,
+    description: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = gesture,
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold
+        )
+        if (description.isNotEmpty()) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = description,
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun HowToUseCategoryScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF111111))
+            .statusBarsPadding()
+    ) {
+        SettingsTopBar(title = "How to Use", onBack = onBack)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SectionHeader(label = "PLAYBACK")
+            SettingsCard {
+                GestureRow(
+                    gesture = "Double Tap Left / Right",
+                    description = "Seek backward / forward (uses your configured duration)"
+                )
+                HorizontalDivider(color = Color(0xFF262626))
+                GestureRow(
+                    gesture = "Tap Center",
+                    description = "Show/hide controls"
+                )
+                HorizontalDivider(color = Color(0xFF262626))
+                GestureRow(
+                    gesture = "Horizontal Swipe",
+                    description = "Scrub through video (if Swipe to Seek is on)"
+                )
+                HorizontalDivider(color = Color(0xFF262626))
+                GestureRow(
+                    gesture = "Long Press",
+                    description = "Hold for 2× speed (if Long Press 2× is on)"
+                )
+            }
+
+            SectionHeader(label = "VOLUME & BRIGHTNESS")
+            SettingsCard {
+                GestureRow(
+                    gesture = "Swipe Up/Down on Right side",
+                    description = "Volume"
+                )
+                HorizontalDivider(color = Color(0xFF262626))
+                GestureRow(
+                    gesture = "Swipe Up/Down on Left side",
+                    description = "Screen brightness"
+                )
+            }
+
+            SectionHeader(label = "ZOOM & PAN")
+            SettingsCard {
+                GestureRow(
+                    gesture = "Pinch",
+                    description = "Zoom in/out"
+                )
+                HorizontalDivider(color = Color(0xFF262626))
+                GestureRow(
+                    gesture = "Two-finger drag",
+                    description = "Pan video"
+                )
+            }
+
+            SectionHeader(label = "TRACK SELECTION")
+            SettingsCard {
+                GestureRow(
+                    gesture = "Tap audio / subtitle icons",
+                    description = "Switch tracks from the top-left quick actions"
+                )
+                HorizontalDivider(color = Color(0xFF262626))
+                GestureRow(
+                    gesture = "Tap decoder icon",
+                    description = "Change hardware decode mode mid-playback"
+                )
+            }
+
+            Spacer(Modifier.height(32.dp))
         }
     }
 }

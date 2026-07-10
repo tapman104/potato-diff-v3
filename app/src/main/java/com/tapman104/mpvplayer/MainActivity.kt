@@ -47,24 +47,8 @@ class MainActivity : ComponentActivity() {
                     val settingsViewModel: SettingsViewModel = viewModel(
                         factory = SettingsViewModelFactory(UserPreferencesRepository(context.applicationContext))
                     )
-                    
-                    val preferredSubtitleLang by settingsViewModel.subtitleLanguage.collectAsState()
-                    val subtitleSize by settingsViewModel.subtitleSize.collectAsState()
-                    val subtitlePosition by settingsViewModel.subtitlePosition.collectAsState()
-                    val resumePlayback by settingsViewModel.resumePlayback.collectAsState()
-                    val decodeMode by settingsViewModel.decodeMode.collectAsState()
-
                     SettingsScreen(
-                        preferredSubtitleLang = preferredSubtitleLang,
-                        onSubtitleLangChange = { settingsViewModel.setSubtitleLanguage(it) },
-                        subtitleSize = subtitleSize,
-                        subtitlePosition = subtitlePosition,
-                        onSubtitleSizeChange = { settingsViewModel.setSubtitleSize(it) },
-                        onSubtitlePositionChange = { settingsViewModel.setSubtitlePosition(it) },
-                        resumePlayback = resumePlayback,
-                        onResumePlaybackChange = { settingsViewModel.setResumePlayback(it) },
-                        decodeMode = decodeMode,
-                        onDecodeModeChange = { settingsViewModel.setDecodeMode(it) },
+                        viewModel = settingsViewModel,
                         onBack = { showSettings = false }
                     )
                 }
