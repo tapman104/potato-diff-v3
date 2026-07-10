@@ -35,7 +35,7 @@ class PlayerCoordinator(
     override val playbackSpeed get() = viewModel.playerState.value.speed
 
     // --- playback commands ---
-    override fun pause() = viewModel.pause()
+    override fun pause() = viewModel.pausePlayback()
     override fun unpause() = viewModel.play()
     override fun seekTo(positionMs: Long, precise: Boolean) = viewModel.seekTo(positionMs, precise)
     override fun seekForward(offsetMs: Long) = viewModel.seekRelative(offsetMs)

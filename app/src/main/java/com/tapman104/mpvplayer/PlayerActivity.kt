@@ -208,7 +208,10 @@ class PlayerActivity : ComponentActivity() {
                     onBrightnessChange = updateWindowBrightness,
                     onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
                     onBack = { finish() },
-                    onOpenSettings = { showSettings = true },
+                    onOpenSettings = {
+                        showSettings = true
+                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    },
                     onAudioTrackSelected = { viewModel.setAudioTrack(it) },
                     onAddAudioClick = { audioPickerLauncher.launch(arrayOf("audio/*")) },
                     onSubtitleTrackSelected = { viewModel.setSubtitleTrack(it) },
@@ -232,21 +235,16 @@ class PlayerActivity : ComponentActivity() {
                     gestureSensitivity = gestureSensitivity,
                 )
 
-                LaunchedEffect(showSettings) {
-                    if (showSettings) {
-                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                    } else {
-                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                    }
-                }
-
                 if (showSettings) {
                     val settingsViewModel: SettingsViewModel by viewModels {
                         SettingsViewModelFactory(UserPreferencesRepository(application))
                     }
                     SettingsScreen(
                         viewModel = settingsViewModel,
-                        onBack = { showSettings = false }
+                        onBack = {
+                            showSettings = false
+                            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        }
                     )
                 }
             }

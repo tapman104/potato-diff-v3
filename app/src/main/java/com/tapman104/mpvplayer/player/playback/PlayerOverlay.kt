@@ -180,9 +180,9 @@ fun PlayerOverlay(
         }
     }
 
-    val onOpenSettingsAction = remember(coordinator, onOpenSettings) {
+    val onOpenSettingsAction = remember(coordinator, onOpenSettings, onPause) {
         {
-            coordinator?.pause() ?: onPause()
+            onPause()
             onOpenSettings()
         }
     }
