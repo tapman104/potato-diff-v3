@@ -25,6 +25,7 @@ import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
 import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
+import com.tapman104.mpvplayer.player.gesture.BrightnessIndicator
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
 import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.model.DecodeMode
@@ -85,13 +86,14 @@ fun PlayerOverlay(
         val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         mutableIntStateOf(if (max > 0) (current.toFloat() / max * 100).toInt() else 0)
     }
+    var brightnessOverlayPct by remember { mutableStateOf<Int?>(null) }
 
     val overlayImpl = remember {
         object : OverlayController {
             override fun showVolumeOverlay(percent: Int) { volumePercentage = percent }
             override fun hideVolumeOverlay() { /* optionally hide after delay */ }
-            override fun showBrightnessOverlay(percent: Int) { /* drive brightness state if it exists */ }
-            override fun hideBrightnessOverlay() {}
+            override fun showBrightnessOverlay(percent: Int) { brightnessOverlayPct = percent }
+            override fun hideBrightnessOverlay() { brightnessOverlayPct = null }
             override fun showHorizontalSeekOverlay(currentLabel: String, deltaLabel: String, targetMs: Long) {
                 gestureSeekPreviewMs = targetMs
             }
@@ -167,8 +169,11 @@ fun PlayerOverlay(
     }
     val onBrightnessChangeAction = remember(coordinator, onBrightnessChange) {
         { brightness: Float ->
-            onBrightnessChange(brightness)
-            coordinator?.setBrightness(brightness) ?: Unit
+            if (coordinator != null) {
+                coordinator.setBrightness(brightness)
+            } else {
+                onBrightnessChange(brightness)
+            }
         }
     }
 
@@ -202,6 +207,14 @@ fun PlayerOverlay(
             longPress2x = longPress2x,
             gestureSensitivity = gestureSensitivity
         )
+
+        if (coordinator != null) {
+            brightnessOverlayPct?.let { pct ->
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    BrightnessIndicator(brightness = pct / 100f)
+                }
+            }
+        }
 
         // ── TOP BAR ──────────────────────────────────────────────────────────
         AnimatedVisibility(
