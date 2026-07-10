@@ -24,6 +24,7 @@ import com.tapman104.mpvplayer.player.coordinator.OverlayController
 import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
+import com.tapman104.mpvplayer.player.dialogs.MoreOptionsSheet
 import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
 import com.tapman104.mpvplayer.player.gesture.BrightnessIndicator
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
@@ -54,7 +55,6 @@ fun PlayerOverlay(
     onPause: () -> Unit,
     onPlay: () -> Unit,
     onCycleDecodeMode: (DecodeMode) -> Unit,
-    onMoreOptions: () -> Unit,
     onSubtitleSizeChange: (Float) -> Unit,
     onSubtitlePositionChange: (Float) -> Unit,
     onSubtitleAppearanceReset: () -> Unit,
@@ -71,6 +71,7 @@ fun PlayerOverlay(
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var showSubtitleAppearanceDialog by remember { mutableStateOf(false) }
     var showDecodeModeDialog by remember { mutableStateOf(false) }
+    var showMoreOptionsSheet by remember { mutableStateOf(false) }
     // Drives the animated visibility of the decode-mode dialog independently so
     // we can play the exit animation before the dialog is removed from composition.
     var decodeDialogVisible by remember { mutableStateOf(false) }
@@ -133,7 +134,7 @@ fun PlayerOverlay(
     // Auto-hide controls after 3 s of inactivity. Dialogs suppress auto-hide via the guard
     // inside the effect body — they don't need to be keys, as the body rechecks on each resume.
     LaunchedEffect(controlsVisible) {
-        if (controlsVisible && !showAudioDialog && !showSubtitleDialog && !showSubtitleAppearanceDialog && !showDecodeModeDialog) {
+        if (controlsVisible && !showAudioDialog && !showSubtitleDialog && !showSubtitleAppearanceDialog && !showDecodeModeDialog && !showMoreOptionsSheet) {
             delay(3000L)
             controlsVisible = false
         }
@@ -243,7 +244,7 @@ fun PlayerOverlay(
                 onSelectAudioTrack = { showAudioDialog = true },
                 onSelectSubtitleTrack = { showSubtitleDialog = true },
                 onDecodeModeClick = { showDecodeModeDialog = true },
-                onMoreOptions = onMoreOptions
+                onMoreOptions = { showMoreOptionsSheet = true }
             )
         }
 
@@ -370,6 +371,22 @@ fun PlayerOverlay(
                     }
                 )
             }
+        }
+
+        if (showMoreOptionsSheet) {
+            MoreOptionsSheet(
+                playbackSpeed = playerState.playbackSpeed.toFloat(),
+                onSpeedChange = { speed ->
+                    coordinator?.setPlaybackSpeedRamped(speed)
+                },
+                onOpenSettings = {
+                    // TODO: Open settings
+                },
+                onShowFileInfo = {
+                    // TODO: Show file info
+                },
+                onDismiss = { showMoreOptionsSheet = false }
+            )
         }
     }
 }

@@ -219,7 +219,6 @@ class PlayerActivity : ComponentActivity() {
                     onCycleDecodeMode = { newMode -> viewModel.cycleDecodeMode(newMode, resumeAfter = true) },
                     onPause = viewModel::pausePlayback,
                     onPlay = viewModel::play,
-                    onMoreOptions = { showSettings = true },
                     onSubtitleSizeChange = { viewModel.setSubtitleSize(it) },
                     onSubtitlePositionChange = { viewModel.setSubtitlePosition(it) },
                     onSubtitleAppearanceReset = { viewModel.resetSubtitleAppearance() },
