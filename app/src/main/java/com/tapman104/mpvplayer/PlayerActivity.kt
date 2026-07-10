@@ -26,13 +26,20 @@ import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.core.engine.MpvController
+import com.tapman104.mpvplayer.player.gesture.OverlayController
+import com.tapman104.mpvplayer.player.gesture.PlayerCoordinator
 
 
-class PlayerActivity : ComponentActivity() {
+class PlayerActivity : ComponentActivity(), OverlayController {
 
     private val mpvController by lazy { MpvController(applicationContext) }
     private val viewModel: PlayerViewModel by viewModels {
         PlayerViewModelFactory.create(application, mpvController)
+    }
+
+    private val overlayControllerImpl: OverlayController get() = this
+    private val coordinator: PlayerCoordinator by lazy {
+        PlayerCoordinator(viewModel, overlayControllerImpl)
     }
 
     private lateinit var surfaceView: SurfaceView
@@ -347,4 +354,22 @@ class PlayerActivity : ComponentActivity() {
         super.onDestroy()
         unregisterReceiver(screenOffReceiver)
     }
+
+    // OverlayController implementation
+    override fun showVolumeOverlay(percent: Int) {}
+    override fun hideVolumeOverlay() {}
+    override fun showBrightnessOverlay(percent: Int) {}
+    override fun hideBrightnessOverlay() {}
+    override fun showSpeedOverlay(speed: Float, sliderIndex: Int?) {}
+    override fun hideSpeedOverlay() {}
+    override fun showHorizontalSeekOverlay(currentLabel: String, deltaLabel: String, targetMs: Long) {}
+    override fun hideHorizontalSeekOverlay(delayMs: Long) {}
+    override fun showDoubleTapSeekOverlay(amountSec: Int, isForward: Boolean, label: String) {}
+    override fun hideDoubleTapSeekOverlay() {}
+    override fun showPinchZoomOverlay(zoomPercent: Int) {}
+    override fun hidePinchZoomOverlay() {}
+    override fun showTapFeedback(x: Float, y: Float) {}
+    override fun triggerSingleTapAction() {}
+    override fun scheduleTimer(delayMs: Long, action: () -> Unit): Any = Any()
+    override fun cancelTimer(timerId: Any?) {}
 }

@@ -24,7 +24,6 @@ import com.tapman104.mpvplayer.core.engine.TrackListParser
 import com.tapman104.mpvplayer.util.UriResolver
 import com.tapman104.mpvplayer.player.model.*
 import com.tapman104.mpvplayer.player.state.*
-import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import `is`.xyz.mpv.MPVLib
 import `is`.xyz.mpv.MPVNode
 import `is`.xyz.mpv.Utils
@@ -34,7 +33,7 @@ class PlayerViewModel(
     val controller: MpvController,
     private val resumePositionManager: ResumePositionManager,
     val preferencesRepository: UserPreferencesRepository,
-) : AndroidViewModel(application), MpvEventListener, MpvPlayerController {
+) : AndroidViewModel(application), MpvEventListener {
 
     private val TAG = "PlayerViewModel"
 
@@ -146,7 +145,7 @@ class PlayerViewModel(
     fun play() = controller.executor.play()
     fun togglePlay() = controller.executor.togglePlay()
     
-    override fun seekTo(positionMs: Long, precise: Boolean) {
+    fun seekTo(positionMs: Long, precise: Boolean = false) {
         lastSeekTime = System.currentTimeMillis()
         if (precise) {
             controller.executor.seekCommit(positionMs / 1000.0)
@@ -418,26 +417,9 @@ class PlayerViewModel(
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // MpvPlayerController implementation
-    // ---------------------------------------------------------------------------
-
-    override val durationMs: Long get() = _playerState.value.durationMs
-    override val currentPositionMs: Long get() = _playerState.value.currentPositionMs
-    override val isPaused: Boolean get() = _playerState.value.isPaused
-    override val currentZoomLog2: Float get() = _playerState.value.videoZoom
-    override val currentPanX: Float get() = _playerState.value.videoPanX
-    override val currentPanY: Float get() = _playerState.value.videoPanY
-    override val volume: Float get() = _playerState.value.volume.toFloat()
-    override val maxStandardVolume: Float get() = 100f
-    override val maxBoostVolume: Float get() = 130f
-    override val brightness: Float get() = getScreenBrightness()
-    override val screenWidthPx: Float get() = application.resources.displayMetrics.widthPixels.toFloat()
-    override val screenHeightPx: Float get() = application.resources.displayMetrics.heightPixels.toFloat()
-    override val isVolumeSideRight: Boolean get() = true
-    override val doubleTapSeekAreaWidthPercent: Int get() = 30
-    override val isDynamicSpeedOverlayEnabled: Boolean get() = true
-    override val playbackSpeed: Float get() = _playerState.value.speed
+    fun currentBrightness(): Float = getScreenBrightness()
+    val screenWidthPx: Float get() = application.resources.displayMetrics.widthPixels.toFloat()
+    val screenHeightPx: Float get() = application.resources.displayMetrics.heightPixels.toFloat()
 
     private fun getScreenBrightness(): Float {
         return try {
@@ -448,75 +430,34 @@ class PlayerViewModel(
         }
     }
 
-    override fun pause() {
+    fun pause() {
         controller.executor.pause()
     }
 
-    override fun unpause() {
-        controller.executor.play()
-    }
-
-    override fun seekForward(offsetMs: Long) {
-        seekRelative(offsetMs)
-    }
-
-    override fun seekBackward(offsetMs: Long) {
-        seekRelative(-offsetMs)
-    }
-
-    override fun seekGesture(positionMs: Long) {
+    fun seekGesture(positionMs: Long) {
         isSliderSeeking = true
         lastSeekTime = System.currentTimeMillis()
         controller.executor.seekGesture(positionMs / 1000.0)
     }
 
-    override fun seekCommit(positionMs: Long) {
+    fun seekCommit(positionMs: Long) {
         isSliderSeeking = false
         lastSeekTime = 0L
         controller.executor.seekCommit(positionMs / 1000.0)
     }
 
-    override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
-        controller.executor.setSpeed(targetSpeed.toDouble())
-    }
-
-    override fun restorePlaybackSpeed() {
-        // Handled by PlayerActivity override restoration
-    }
-
-    override fun setVolume(volume: Float) {
+    fun setVolume(volume: Float) {
         val volInt = volume.roundToInt().coerceIn(0, 130)
         controller.executor.setVolume(volInt)
         _playerState.update { it.copy(volume = volInt) }
     }
 
-    override fun setBrightness(brightness: Float) {
-        // MPV does not control system brightness directly
-    }
-
-    override fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
+    fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
         controller.executor.setVideoZoom(zoomLog2)
         controller.executor.setVideoPan(panX, panY)
         _playerState.update { it.copy(videoZoom = zoomLog2, videoPanX = panX, videoPanY = panY) }
     }
 
-    override fun showDoubleTapSeekOverlay(seekAmountSec: Int, isForward: Boolean, label: String) {}
-    override fun hideDoubleTapSeekOverlay() {}
-    override fun showHorizontalSeekOverlay(currentTimeLabel: String, deltaLabel: String, targetPositionMs: Long) {}
-    override fun hideHorizontalSeekOverlay(delayMs: Long) {}
-    override fun showSpeedOverlay(speed: Float, interactiveSliderIndex: Int?) {}
-    override fun hideSpeedOverlay() {}
-    override fun showVolumeOverlay(percentage: Int) {}
-    override fun hideVolumeOverlay() {}
-    override fun showBrightnessOverlay(percentage: Int) {}
-    override fun hideBrightnessOverlay() {}
-    override fun showPinchZoomOverlay(zoomPercentage: Int) {}
-    override fun hidePinchZoomOverlay() {}
-    override fun showTapFeedback(x: Float, y: Float) {}
-
-    override fun scheduleTimer(delayMs: Long, action: () -> Unit): Any = Any()
-    override fun cancelTimer(timerId: Any?) {}
-    override fun triggerSingleTapAction() {}
 
     // ---------------------------------------------------------------------------
     // MpvEventListener
