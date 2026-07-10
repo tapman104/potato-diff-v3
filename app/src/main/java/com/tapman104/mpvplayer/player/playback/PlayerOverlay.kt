@@ -44,6 +44,7 @@ fun PlayerOverlay(
     positionState: PositionState,
     onOpenFile: () -> Unit,
     onBack: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
     onTogglePlay: () -> Unit,
@@ -379,9 +380,7 @@ fun PlayerOverlay(
                 onSpeedChange = { speed ->
                     coordinator?.setPlaybackSpeedRamped(speed)
                 },
-                onOpenSettings = {
-                    // TODO: Open settings
-                },
+                onOpenSettings = onOpenSettings,
                 onShowFileInfo = {
                     // TODO: Show file info
                 },

@@ -207,6 +207,7 @@ class PlayerActivity : ComponentActivity() {
                     onBrightnessChange = updateWindowBrightness,
                     onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
                     onBack = { finish() },
+                    onOpenSettings = { showSettings = true },
                     onAudioTrackSelected = { viewModel.setAudioTrack(it) },
                     onAddAudioClick = { audioPickerLauncher.launch(arrayOf("audio/*")) },
                     onSubtitleTrackSelected = { viewModel.setSubtitleTrack(it) },
