@@ -242,10 +242,10 @@ fun PlayerOverlay(
         ) {
             PlayerQuickActions(
                 decodeMode = playerState.decodeMode,
-                onSelectAudioTrack = { showAudioDialog = true },
-                onSelectSubtitleTrack = { showSubtitleDialog = true },
-                onDecodeModeClick = { showDecodeModeDialog = true },
-                onMoreOptions = { showMoreOptionsSheet = true }
+                onSelectAudioTrack = remember { { showAudioDialog = true } },
+                onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
+                onDecodeModeClick = remember { { showDecodeModeDialog = true } },
+                onMoreOptions = remember { { showMoreOptionsSheet = true } }
             )
         }
 

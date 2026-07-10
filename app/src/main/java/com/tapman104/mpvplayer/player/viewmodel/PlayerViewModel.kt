@@ -174,6 +174,7 @@ class PlayerViewModel(
     fun setSpeed(speed: Float) = controller.executor.setSpeed(speed.toDouble())
     fun setVolume(volume: Int) = controller.executor.setVolume(volume)
     fun setAudioTrack(id: Int) {
+        if (_playerState.value.currentAudioTrackId == id) return
         controller.executor.setAudioTrack(id)
         _playerState.update { it.copy(currentAudioTrackId = id) }
     }
@@ -184,6 +185,7 @@ class PlayerViewModel(
         }
     }
     fun setSubtitleTrack(id: Int) {
+        if (_playerState.value.currentSubtitleTrackId == id) return
         controller.executor.setSubtitleTrack(id)
         _playerState.update { it.copy(currentSubtitleTrackId = id) }
     }
@@ -217,6 +219,7 @@ class PlayerViewModel(
     }
 
     fun setAspectRatio(mode: AspectRatioMode) {
+        if (_playerState.value.aspectRatioMode == mode) return
         _playerState.update { it.copy(aspectRatioMode = mode) }
         when (mode) {
             // DEFAULT and FIT both use container aspect with no panscan. DEFAULT honours the
@@ -260,6 +263,7 @@ class PlayerViewModel(
 
     /** Pauses playback immediately — used by screen-off receiver. */
     fun pausePlayback() {
+        if (_playerState.value.isPaused) return
         controller.executor.pause()
         _playerState.update { it.copy(isPaused = true) }
     }
@@ -298,11 +302,13 @@ class PlayerViewModel(
     // ---------------------------------------------------------------------------
 
     fun setVideoZoom(zoom: Float) {
+        if (_playerState.value.videoZoom == zoom) return
         controller.executor.setVideoZoom(zoom)
         _playerState.update { it.copy(videoZoom = zoom) }
     }
 
     fun setVideoPan(panX: Float, panY: Float) {
+        if (_playerState.value.videoPanX == panX && _playerState.value.videoPanY == panY) return
         controller.executor.setVideoPan(panX, panY)
         _playerState.update { it.copy(videoPanX = panX, videoPanY = panY) }
     }
@@ -486,6 +492,7 @@ class PlayerViewModel(
         when (name) {
             "pause" -> {
                 val paused = value as? Boolean ?: return
+                if (_playerState.value.isPaused == paused) return
                 _playerState.update { it.copy(isPaused = paused) }
             }
             "time-pos" -> {
@@ -500,19 +507,25 @@ class PlayerViewModel(
                 // mpv frame. After a seek commit, the next update is always accepted
                 // (lastTimePosUpdate was reset to 0 on commit) to snap to the new position.
                 if (now - lastTimePosUpdate >= 200) {
-                    _positionState.update { it.copy(positionSec = seconds) }
+                    if (_positionState.value.positionSec != seconds) {
+                        _positionState.update { it.copy(positionSec = seconds) }
+                    }
                     lastTimePosUpdate = now
                 }
             }
             "duration" -> {
                 val seconds = value as? Double ?: return
-                _positionState.update { it.copy(durationSec = seconds) }
+                if (_positionState.value.durationSec != seconds) {
+                    _positionState.update { it.copy(durationSec = seconds) }
+                }
             }
             "demuxer-cache-time" -> {
                 val seconds = value as? Double ?: return
                 val now = System.currentTimeMillis()
                 if (now - lastCacheUpdate >= 500) {  // 2Hz is enough for cache indicator
-                    _positionState.update { it.copy(cachedSec = seconds) }
+                    if (_positionState.value.cachedSec != seconds) {
+                        _positionState.update { it.copy(cachedSec = seconds) }
+                    }
                     lastCacheUpdate = now
                 }
             }
@@ -525,14 +538,17 @@ class PlayerViewModel(
             }
             "aid" -> {
                 val id = (value as? Long)?.toInt() ?: -1
+                if (_playerState.value.currentAudioTrackId == id) return
                 _playerState.update { it.copy(currentAudioTrackId = id) }
             }
             "sid" -> {
                 val id = (value as? Long)?.toInt() ?: -1
+                if (_playerState.value.currentSubtitleTrackId == id) return
                 _playerState.update { it.copy(currentSubtitleTrackId = id) }
             }
             "speed" -> {
                 val speed = value as? Double ?: return
+                if (_playerState.value.playbackSpeed == speed) return
                 _playerState.update { it.copy(playbackSpeed = speed) }
             }
             "hwdec" -> {
@@ -548,6 +564,7 @@ class PlayerViewModel(
             }
             "volume" -> {
                 val volume = value as? Double ?: return
+                if (_playerState.value.volume == volume.toInt()) return
                 _playerState.update { it.copy(volume = volume.toInt()) }
             }
         }

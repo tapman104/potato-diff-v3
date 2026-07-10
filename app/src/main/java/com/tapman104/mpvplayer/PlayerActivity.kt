@@ -254,6 +254,7 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         when (currentBackgroundPlayPref) {
             "off" -> {
                 viewModel.pausePlayback()
@@ -275,6 +276,11 @@ class PlayerActivity : ComponentActivity() {
                 viewModel.pausePlayback()
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     override fun onDestroy() {

@@ -242,6 +242,13 @@ private fun RefinedSeekBar(
     val currentOnDragEnd by rememberUpdatedState(onDragEnd)
     val currentEnabled by rememberUpdatedState(enabled)
 
+    val inactiveTrackColor = remember(enabled) {
+        Color.White.copy(alpha = if (enabled) 0.22f else 0.12f)
+    }
+    val bufferTrackColor = remember {
+        Color.White.copy(alpha = 0.44f)
+    }
+
     Canvas(
         modifier = modifier.pointerInput(Unit) {
             awaitEachGesture {
@@ -281,7 +288,7 @@ private fun RefinedSeekBar(
 
         // 1. Inactive Track
         drawLine(
-            color = Color.White.copy(alpha = if (enabled) 0.22f else 0.12f),
+            color = inactiveTrackColor,
             start = Offset(startX, centerY),
             end = Offset(endX, centerY),
             strokeWidth = trackHeightPx,
@@ -294,7 +301,7 @@ private fun RefinedSeekBar(
             if (safeBuffer > 0f) {
                 val bufferEndX = startX + trackWidthPx * safeBuffer
                 drawLine(
-                    color = Color.White.copy(alpha = 0.44f),
+                    color = bufferTrackColor,
                     start = Offset(startX, centerY),
                     end = Offset(bufferEndX, centerY),
                     strokeWidth = trackHeightPx,
@@ -319,9 +326,10 @@ private fun RefinedSeekBar(
             val glowAlpha = animatedGlowAlpha
             if (glowAlpha > 0f) {
                 drawCircle(
-                    color = Color.White.copy(alpha = 0.25f * glowAlpha),
-                    radius = thumbRadiusPx + 8.dp.toPx() * glowAlpha,
-                    center = Offset(progressEndX, centerY)
+                    color = Color.White,
+                    radius = thumbRadiusPx + sidePaddingPx * glowAlpha,
+                    center = Offset(progressEndX, centerY),
+                    alpha = 0.25f * glowAlpha
                 )
             }
 
