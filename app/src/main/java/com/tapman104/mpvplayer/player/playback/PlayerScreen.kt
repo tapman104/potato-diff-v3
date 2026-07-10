@@ -11,6 +11,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.tapman104.mpvplayer.player.coordinator.OverlayController
 import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.state.PlayerState
+import com.tapman104.mpvplayer.player.state.PositionState
 import com.tapman104.mpvplayer.player.model.DecodeMode
 
 @Composable
@@ -18,6 +19,7 @@ fun PlayerScreen(
     coordinator: MpvPlayerController? = null,
     onCoordinatorReady: ((OverlayController) -> Unit)? = null,
     playerState: PlayerState,
+    positionState: PositionState,
     surfaceView: SurfaceView,
     onTogglePlay: () -> Unit,
     initialBrightness: Float = -1f,
@@ -65,6 +67,7 @@ fun PlayerScreen(
             onCoordinatorReady = onCoordinatorReady,
             fileName = fileName,
             playerState = playerState,
+            positionState = positionState,
             onOpenFile = onOpenFile,
             initialBrightness = initialBrightness,
             onBrightnessChange = onBrightnessChange,

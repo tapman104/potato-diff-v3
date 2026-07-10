@@ -109,11 +109,13 @@ class PlayerActivity : ComponentActivity() {
         setContent {
             MpvPlayerTheme {
                 val playerState by viewModel.playerState.collectAsStateWithLifecycle()
+                val positionState by viewModel.positionState.collectAsStateWithLifecycle()
                 val playlistState by viewModel.playlistState.collectAsStateWithLifecycle()
 
-                val resumePlaybackPref by viewModel.resumePlayback.collectAsStateWithLifecycle(
-                    initialValue = UserPreferencesRepository.DEFAULT_RESUME_PLAYBACK
-                )
+                var resumePlaybackEnabled by remember { mutableStateOf(true) }
+                LaunchedEffect(Unit) {
+                    viewModel.resumePlayback.collect { resumePlaybackEnabled = it }
+                }
                 val backgroundPlayPref by viewModel.backgroundPlay.collectAsStateWithLifecycle(
                     initialValue = UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY
                 )
@@ -159,7 +161,7 @@ class PlayerActivity : ComponentActivity() {
                     } else {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         val path = currentFilePath ?: return@LaunchedEffect
-                        val posMs = playerState.currentPositionMs
+                        val posMs = positionState.currentPositionMs
                         viewModel.saveCurrentPosition(path, posMs)
                     }
                 }
@@ -169,7 +171,7 @@ class PlayerActivity : ComponentActivity() {
                     val uriStr = playlistState.currentUri ?: return@LaunchedEffect
                     currentFilePath = uriStr
                     viewModel.loadResumePosition(uriStr) { savedMs ->
-                        if (savedMs != null && savedMs > 5000L && resumePlaybackPref) {
+                        if (savedMs != null && savedMs > 5000L && resumePlaybackEnabled) {
                             pendingResumeMs = savedMs
                         } else {
                             pendingResumeMs = 0L
@@ -193,6 +195,7 @@ class PlayerActivity : ComponentActivity() {
                         ?.let { UriResolver.getDisplayName(applicationContext, Uri.parse(it)) }
                         ?: "Unknown",
                     playerState = playerState,
+                    positionState = positionState,
                     surfaceView = surfaceView,
                     onTogglePlay = { viewModel.togglePlay() },
                     initialBrightness = initialBrightness,

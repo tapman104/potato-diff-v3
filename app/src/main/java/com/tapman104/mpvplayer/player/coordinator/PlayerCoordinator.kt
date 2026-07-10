@@ -16,8 +16,8 @@ class PlayerCoordinator(
     }
 
     // --- state queries ---
-    override val durationMs get() = viewModel.playerState.value.durationMs
-    override val currentPositionMs get() = viewModel.playerState.value.currentPositionMs
+    override val durationMs get() = viewModel.positionState.value.durationMs
+    override val currentPositionMs get() = viewModel.positionState.value.currentPositionMs
     override val isPaused get() = viewModel.playerState.value.isPaused
     override val currentZoomLog2 get() = viewModel.playerState.value.videoZoom
     override val currentPanX get() = viewModel.playerState.value.videoPanX

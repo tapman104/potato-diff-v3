@@ -38,9 +38,13 @@ class PlayerViewModel(
     private val TAG = "PlayerViewModel"
 
     private var lastTimePosUpdate = 0L
+    private var lastCacheUpdate = 0L
     private var lastSeekTime = 0L
     /** True while the user is actively dragging the seek slider — suppresses mpv position echo-backs. */
     @Volatile private var isSliderSeeking = false
+
+    private val _positionState = MutableStateFlow(PositionState())
+    val positionState: StateFlow<PositionState> = _positionState.asStateFlow()
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -80,7 +84,7 @@ class PlayerViewModel(
     val backgroundPlay = preferencesRepository.backgroundPlay
 
     init {
-        resumePositionManager.attach(viewModelScope) { _playerState.value.durationMs }
+        resumePositionManager.attach(viewModelScope) { _positionState.value.durationMs }
         controller.dispatcher.addListener(this)
         controller.init()
         controller.surface.setSurfaceReadyCallback {
@@ -496,17 +500,21 @@ class PlayerViewModel(
                 // mpv frame. After a seek commit, the next update is always accepted
                 // (lastTimePosUpdate was reset to 0 on commit) to snap to the new position.
                 if (now - lastTimePosUpdate >= 200) {
-                    _playerState.update { it.copy(positionSec = seconds) }
+                    _positionState.update { it.copy(positionSec = seconds) }
                     lastTimePosUpdate = now
                 }
             }
             "duration" -> {
                 val seconds = value as? Double ?: return
-                _playerState.update { it.copy(durationSec = seconds) }
+                _positionState.update { it.copy(durationSec = seconds) }
             }
             "demuxer-cache-time" -> {
                 val seconds = value as? Double ?: return
-                _playerState.update { it.copy(cachedSec = seconds) }
+                val now = System.currentTimeMillis()
+                if (now - lastCacheUpdate >= 500) {  // 2Hz is enough for cache indicator
+                    _positionState.update { it.copy(cachedSec = seconds) }
+                    lastCacheUpdate = now
+                }
             }
             "track-list" -> {
                 val node = value as? MPVNode ?: return
