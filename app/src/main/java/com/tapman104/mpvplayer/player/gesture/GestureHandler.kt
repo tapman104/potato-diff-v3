@@ -285,7 +285,8 @@ fun GestureHandler(
             }
             .pointerInput(stateMachine) {
                 awaitEachGesture {
-                    val downEvent = awaitFirstDown(requireUnconsumed = false)
+                    val downEvent = awaitFirstDown(requireUnconsumed = true)
+                    if (downEvent.isConsumed) return@awaitEachGesture
                     val density = this.density
 
                     stateMachine.onPointerDown(
@@ -302,6 +303,17 @@ fun GestureHandler(
                     while (true) {
                         val event = awaitPointerEvent()
                         val changes = event.changes
+                        if (changes.any { it.isConsumed }) {
+                            val lastEvent = changes.firstOrNull() ?: downEvent
+                            stateMachine.onPointerUp(
+                                pointerId = lastEvent.id.value,
+                                x = lastEvent.position.x,
+                                y = lastEvent.position.y,
+                                timeMs = lastEvent.uptimeMillis,
+                                activePointerCount = 0
+                            )
+                            break
+                        }
                         val activeCount = changes.count { it.pressed }
                         val firstPressed = changes.firstOrNull { it.pressed }
 

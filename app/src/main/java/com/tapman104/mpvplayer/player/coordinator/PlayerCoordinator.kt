@@ -6,6 +6,7 @@ import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 class PlayerCoordinator(
     private val viewModel: PlayerViewModel,
     private var overlay: OverlayController = OverlayController.NO_OP,
+    var onBrightnessChange: ((Float) -> Unit)? = null,
 ) : MpvPlayerController {
 
     private var preOverrideSpeed: Float = 1f
@@ -55,7 +56,11 @@ class PlayerCoordinator(
         }
     }
     override fun setVolume(volume: Float) = viewModel.setVolume(volume)
-    override fun setBrightness(brightness: Float) {}
+    override fun setBrightness(brightness: Float) {
+        val clamped = brightness.coerceIn(0f, 1f)
+        onBrightnessChange?.invoke(clamped)
+        overlay.showBrightnessOverlay((clamped * 100).toInt())
+    }
     override fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) =
         viewModel.setZoomAndPan(zoomLog2, panX, panY)
 

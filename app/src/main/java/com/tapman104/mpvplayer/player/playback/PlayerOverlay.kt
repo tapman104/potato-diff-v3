@@ -41,6 +41,7 @@ fun PlayerOverlay(
     playerState: PlayerState,
     positionState: PositionState,
     onOpenFile: () -> Unit,
+    onBack: () -> Unit = {},
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
     onTogglePlay: () -> Unit,
@@ -164,6 +165,12 @@ fun PlayerOverlay(
             coordinator?.setVolume(vol.toFloat()) ?: Unit
         }
     }
+    val onBrightnessChangeAction = remember(coordinator, onBrightnessChange) {
+        { brightness: Float ->
+            onBrightnessChange(brightness)
+            coordinator?.setBrightness(brightness) ?: Unit
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
 
@@ -183,7 +190,7 @@ fun PlayerOverlay(
             onSpeedRestore   = onSpeedRestore,
             modifier         = Modifier.fillMaxSize(),
             initialBrightness = initialBrightness,
-            onBrightnessChange = onBrightnessChange,
+            onBrightnessChange = onBrightnessChangeAction,
             volumePercentage = volumePercentage,
             onVolumeChange = onVolumeChange,
             currentZoom = coordinator?.currentZoomLog2 ?: 0f,
@@ -205,7 +212,7 @@ fun PlayerOverlay(
         ) {
             PlayerTopBar(
                 fileName = fileName,
-                onBack = onOpenFile
+                onBack = onBack
             )
         }
 
@@ -238,6 +245,7 @@ fun PlayerOverlay(
                 isPlaying = playerState.isPlaying,
                 currentPositionMs = positionState.currentPositionMs,
                 durationMs = positionState.durationMs,
+                bufferPositionMs = positionState.demuxerCacheTimeMs,
                 gestureSeekPreviewMs = gestureSeekPreviewMs,
                 onTogglePlay = onTogglePlay,
                 onSeek = onSeekCommit,

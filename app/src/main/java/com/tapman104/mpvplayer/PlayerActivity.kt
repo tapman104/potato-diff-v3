@@ -104,7 +104,12 @@ class PlayerActivity : ComponentActivity() {
         // Register MpvSurface as the holder callback BEFORE setContent
         surfaceView.holder.addCallback(viewModel.controller.surface)
 
-        coordinator = PlayerCoordinator(viewModel)
+        val updateWindowBrightness: (Float) -> Unit = { newBrightness ->
+            val layoutParams = window.attributes
+            layoutParams.screenBrightness = newBrightness.coerceIn(0f, 1f)
+            window.attributes = layoutParams
+        }
+        coordinator = PlayerCoordinator(viewModel, onBrightnessChange = updateWindowBrightness)
 
         setContent {
             MpvPlayerTheme {
@@ -199,12 +204,9 @@ class PlayerActivity : ComponentActivity() {
                     surfaceView = surfaceView,
                     onTogglePlay = { viewModel.togglePlay() },
                     initialBrightness = initialBrightness,
-                    onBrightnessChange = { newBrightness ->
-                        val layoutParams = window.attributes
-                        layoutParams.screenBrightness = newBrightness
-                        window.attributes = layoutParams
-                    },
+                    onBrightnessChange = updateWindowBrightness,
                     onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
+                    onBack = { finish() },
                     onAudioTrackSelected = { viewModel.setAudioTrack(it) },
                     onAddAudioClick = { audioPickerLauncher.launch(arrayOf("audio/*")) },
                     onSubtitleTrackSelected = { viewModel.setSubtitleTrack(it) },
