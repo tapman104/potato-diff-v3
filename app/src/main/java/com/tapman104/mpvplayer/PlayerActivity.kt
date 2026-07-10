@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -230,6 +231,14 @@ class PlayerActivity : ComponentActivity() {
                     longPress2x = longPress2x,
                     gestureSensitivity = gestureSensitivity,
                 )
+
+                LaunchedEffect(showSettings) {
+                    if (showSettings) {
+                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    } else {
+                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    }
+                }
 
                 if (showSettings) {
                     val settingsViewModel: SettingsViewModel by viewModels {

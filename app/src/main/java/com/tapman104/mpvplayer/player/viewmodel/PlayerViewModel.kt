@@ -453,6 +453,7 @@ class PlayerViewModel(
     fun seekCommit(positionMs: Long) {
         isSliderSeeking = false
         lastSeekTime = 0L
+        lastTimePosUpdate = 0L
         controller.executor.seekCommit(positionMs / 1000.0)
     }
 

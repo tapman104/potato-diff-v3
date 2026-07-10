@@ -22,17 +22,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.tapman104.mpvplayer.player.model.FileInfo
 
 @Composable
 fun MoreOptionsSheet(
     playbackSpeed: Float,
+    fileInfo: FileInfo?,
     onSpeedChange: (Float) -> Unit,
     onOpenSettings: () -> Unit,
-    onShowFileInfo: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var showFileInfoExpanded by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -159,10 +165,33 @@ fun MoreOptionsSheet(
                     label = "File Info",
                     icon = Icons.Filled.Info,
                     onClick = {
-                        onShowFileInfo()
-                        onDismiss()
+                        showFileInfoExpanded = !showFileInfoExpanded
                     }
                 )
+
+                AnimatedVisibility(visible = showFileInfoExpanded && fileInfo != null) {
+                    fileInfo?.let { info ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 36.dp, end = 20.dp, bottom = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FileInfoItem(label = "File Name", value = info.fileName)
+                            if (info.filePath != null) {
+                                FileInfoItem(label = "File Path", value = info.filePath)
+                            }
+                            FileInfoItem(
+                                label = "Duration",
+                                value = formatDuration(info.durationMs)
+                            )
+                            FileInfoItem(
+                                label = "Tracks",
+                                value = "Video: ${info.videoTracks}  Audio: ${info.audioTracks}  Sub: ${info.subtitleTracks}"
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -196,4 +225,35 @@ private fun OptionRow(
             overflow = TextOverflow.Ellipsis
         )
     }
+}
+
+@Composable
+private fun FileInfoItem(
+    label: String,
+    value: String
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 12.sp
+        )
+        Text(
+            text = value,
+            color = Color.White,
+            fontSize = 15.sp
+        )
+    }
+}
+
+private fun formatDuration(durationMs: Long): String {
+    if (durationMs <= 0) return "00:00:00"
+    val totalSeconds = durationMs / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return String.format("%02d:%02d:%02d", hours, minutes, seconds)
 }

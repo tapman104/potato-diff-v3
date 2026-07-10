@@ -30,6 +30,7 @@ import com.tapman104.mpvplayer.player.gesture.BrightnessIndicator
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
 import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.model.DecodeMode
+import com.tapman104.mpvplayer.player.model.FileInfo
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import kotlinx.coroutines.delay
@@ -177,6 +178,23 @@ fun PlayerOverlay(
                 onBrightnessChange(brightness)
             }
         }
+    }
+
+    val onOpenSettingsAction = remember(coordinator, onOpenSettings) {
+        {
+            coordinator?.pause() ?: onPause()
+            onOpenSettings()
+        }
+    }
+    val fileInfo = remember(fileName, positionState.durationMs, playerState.audioTracks, playerState.subtitleTracks) {
+        FileInfo(
+            fileName = fileName,
+            filePath = null,
+            durationMs = positionState.durationMs,
+            videoTracks = 1,
+            audioTracks = playerState.audioTracks.size,
+            subtitleTracks = playerState.subtitleTracks.size,
+        )
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -377,13 +395,11 @@ fun PlayerOverlay(
         if (showMoreOptionsSheet) {
             MoreOptionsSheet(
                 playbackSpeed = playerState.playbackSpeed.toFloat(),
+                fileInfo = fileInfo,
                 onSpeedChange = { speed ->
                     coordinator?.setPlaybackSpeedRamped(speed)
                 },
-                onOpenSettings = onOpenSettings,
-                onShowFileInfo = {
-                    // TODO: Show file info
-                },
+                onOpenSettings = onOpenSettingsAction,
                 onDismiss = { showMoreOptionsSheet = false }
             )
         }

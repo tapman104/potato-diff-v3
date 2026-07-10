@@ -97,7 +97,7 @@ fun PlayerBottomControls(
             dragPositionMs = ms
             onSeekPreviewMs(ms)
             val currentTime = System.currentTimeMillis()
-            if (currentTime - lastSeekSendTime >= 80L) {
+            if (currentTime - lastSeekSendTime >= 50L) {
                 lastSeekSendTime = currentTime
                 onSeekGesture(ms)
             }
