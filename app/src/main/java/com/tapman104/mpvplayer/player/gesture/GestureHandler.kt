@@ -95,6 +95,9 @@ fun GestureHandler(
             }
         }
     }
+    LaunchedEffect(volumePercentage) {
+        localVolumePercent = volumePercentage.toFloat()
+    }
 
     val currentPositionMsRef = rememberUpdatedState(currentPositionMs)
     val durationMsRef = rememberUpdatedState(durationMs)

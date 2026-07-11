@@ -8,9 +8,11 @@ import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import kotlin.math.roundToInt
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -294,5 +296,33 @@ class PlayerActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(screenOffReceiver)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+            val handled = super.onKeyDown(keyCode, event)
+            syncSystemVolume()
+            return handled
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+            val handled = super.onKeyUp(keyCode, event)
+            syncSystemVolume()
+            return handled
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun syncSystemVolume() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        val currentVol = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+        val maxVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+        if (maxVol > 0) {
+            val pct = ((currentVol.toFloat() / maxVol.toFloat()) * 100f).roundToInt()
+            viewModel.dispatch(PlayerAction.SetVolume(pct))
+        }
     }
 }

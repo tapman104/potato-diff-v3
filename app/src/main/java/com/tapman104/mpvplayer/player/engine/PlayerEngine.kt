@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import java.io.File
 
 /**
@@ -237,7 +238,16 @@ class PlayerEngine(
 
     private fun setVolume(volume: Int) {
         val volInt = volume.coerceIn(0, 130)
-        controller.executor.setVolume(volInt)
+        val audioManager = application.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+        audioManager?.let { am ->
+            val maxMusicVol = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+            val targetStreamVol = ((volInt.coerceIn(0, 100) / 100f) * maxMusicVol).roundToInt().coerceIn(0, maxMusicVol)
+            try {
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetStreamVol, 0)
+            } catch (_: Exception) {}
+        }
+        val mpvVol = if (volInt <= 100) 100 else volInt
+        controller.executor.setVolume(mpvVol)
         _playerState.update { it.copy(volume = volInt) }
     }
 

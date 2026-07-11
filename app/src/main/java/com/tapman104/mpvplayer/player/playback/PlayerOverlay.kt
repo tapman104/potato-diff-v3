@@ -86,7 +86,7 @@ fun PlayerOverlay(
     // Tracks the gesture scrub target in real-time; -1L when not scrubbing.
     // Used to update the bottom seek bar without waiting for the 200ms-throttled playerState.
     var gestureSeekPreviewMs by remember { mutableStateOf(-1L) }
-    val volumePercentageState = remember { mutableIntStateOf(playerState.volume) }
+    val volumePercentageState = remember(playerState.volume) { mutableIntStateOf(playerState.volume) }
     var volumePercentage by volumePercentageState
 
     // When the decode dialog is requested, immediately hide the player controls

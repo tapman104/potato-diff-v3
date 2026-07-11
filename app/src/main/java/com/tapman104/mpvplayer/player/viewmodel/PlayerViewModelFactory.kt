@@ -1,6 +1,8 @@
 package com.tapman104.mpvplayer.player.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.media.AudioManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -15,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.math.roundToInt
 
 class PlayerViewModelFactory(
     private val application: Application,
@@ -29,8 +32,15 @@ class PlayerViewModelFactory(
         // Engine owns its own supervised scope — cancelled by engine.destroy()
         val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+        val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        val initialVolumePct = audioManager?.let { am ->
+            val currentVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val maxVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            if (maxVol > 0) ((currentVol.toFloat() / maxVol.toFloat()) * 100f).roundToInt() else 100
+        } ?: 100
+
         // Shared mutable state stores — owned by PlayerEngine, observed by EventProcessor
-        val playerState = MutableStateFlow(PlayerState())
+        val playerState = MutableStateFlow(PlayerState(volume = initialVolumePct))
         val positionState = MutableStateFlow(PositionState())
 
         val playlistManager = PlaylistManager(
