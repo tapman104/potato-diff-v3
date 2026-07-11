@@ -4,32 +4,16 @@ plugins {
     alias(libs.plugins.compose.compiler)
     id("org.jetbrains.kotlin.kapt")
 }
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.util.Properties
 
-// Automated build versioning
-val baseVersionName = "0.0.1"
-val buildTimestamp = SimpleDateFormat("yyyyMMdd.HHmm").format(Date())
-val autoVersionCode = ((System.currentTimeMillis() / 1000L) - 1700000000L).toInt().coerceAtLeast(1)
-val gitCommitCount = try {
-    val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
-        .redirectErrorStream(true)
-        .start()
-    process.inputStream.bufferedReader().readText().trim().toIntOrNull() ?: 1
-} catch (e: Exception) { 1 }
-val gitSha = try {
-    val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
-        .redirectErrorStream(true)
-        .start()
-    process.inputStream.bufferedReader().readText().trim()
-} catch (e: Exception) { "" }
-
-val autoVersionName = if (gitSha.isNotEmpty()) {
-    "$baseVersionName.$gitCommitCount-$gitSha ($buildTimestamp)"
-} else {
-    "$baseVersionName ($buildTimestamp)"
+val versionPropsFile = file("version.properties")
+val versionProps = Properties().apply {
+    if (versionPropsFile.exists()) load(versionPropsFile.inputStream())
 }
-println("-> Building Potato Player version: $autoVersionName (versionCode: $autoVersionCode)")
+
+val major = versionProps.getProperty("major", "1").toInt()
+val minor = versionProps.getProperty("minor", "1").toInt()
+val patch = versionProps.getProperty("patch", "0").toInt()
 
 android {
     namespace = "com.potato.tapman104"
@@ -38,8 +22,8 @@ android {
         applicationId = "com.potato.tapman104"
         minSdk = 24
         targetSdk = 35
-        versionCode = autoVersionCode
-        versionName = autoVersionName
+        versionCode = major * 10000 + minor * 100 + patch
+        versionName = "$major.$minor.$patch"
     }
     splits {
         abi {
@@ -49,13 +33,31 @@ android {
             isUniversalApk = false
         }
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
     kotlinOptions { jvmTarget = "1.8" }
+}
+
+fun incrementPatch() {
+    val newPatch = patch + 1
+    versionProps["patch"] = newPatch.toString()
+    versionPropsFile.writer().use { versionProps.store(it, null) }
+    println("Version bumped to $major.$minor.$newPatch")
+}
+
+tasks.named("assembleDebug") {
+    doLast { incrementPatch() }
+}
+
+tasks.named("assembleRelease") {
+    doLast { incrementPatch() }
 }
 dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
