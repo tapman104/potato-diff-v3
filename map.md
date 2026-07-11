@@ -60,6 +60,7 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 │   │   ├── state/                          # Immutable UI StateFlow models
 │   │   │   ├── PlayerState.kt              # Core playback UI state model
 │   │   │   ├── PlaylistState.kt            # Playlist queue & index state model
+│   │   │   ├── PositionState.kt            # Playback timestamp & duration state model
 │   │   │   └── SubtitleAppearanceState.kt  # Subtitle styling state model
 │   │   └── viewmodel/                      # Business logic & state orchestration
 │   │       ├── PlayerViewModel.kt          # Supreme player brain & equality-guarded state emitter
@@ -138,6 +139,7 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 | **Player Models** | [AudioTrack.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/AudioTrack.kt) & [SubtitleTrack.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/SubtitleTrack.kt) | Track metadata models | `id`, `name`, `lang`, `isSelected` | `TrackListParser` |
 | **Player Models** | [DecodeMode.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/DecodeMode.kt) & [AspectRatioMode.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/AspectRatioMode.kt) | Decoding & aspect ratio enums | `mpvValue`, enum entries | `PlayerQuickActions`, `DecodeModePicker` |
 | **Player State** | [PlayerState.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/state/PlayerState.kt) | Central immutable playback UI state model | `isPaused`, `speed`, `volume`, `durationMs` | `PlayerViewModel`, UI screens |
+| **Player State** | [PositionState.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/state/PositionState.kt) | Dedicated timestamp & duration UI state model | `currentPositionMs`, `durationMs`, `positionSec` | `PlayerViewModel`, `EventProcessor` |
 | **Settings** | [SettingsScreen.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsScreen.kt) & [SettingsViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsViewModel.kt) | Global application settings UI & state manager | `SettingsScreen(...)`, `update*()` | `UserPreferencesRepository` |
 | **Utilities** | [UriResolver.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/util/UriResolver.kt) & [TimeFormatter.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/util/TimeFormatter.kt) | URI file resolution & timestamp formatting | `resolveUri()`, `formatTime()` | `PlayerActivity`, `PlayerBottomControls` |
 | **Tests** | [EventProcessorTest.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/test/java/com/tapman104/mpvplayer/core/engine/EventProcessorTest.kt) | Unit test suite verifying EventProcessor state updates, pause synchronization, time-pos throttling (~5 Hz), and seek suppression | `@Test` methods for event processing | `EventProcessor` |
@@ -538,12 +540,15 @@ MPVLib native event: EOF_REACHED = true → [MpvEventDispatcher.kt](file:///c:/U
 ```
 User locks screen or presses Home
         │
+        ├─► Playback Pause Ownership: [PlayerActivity.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/PlayerActivity.kt)
+        │     • screenOffReceiver → viewModel.pausePlayback() (when screen turns off)
+        │     • onPause() → viewModel.pausePlayback() (unless backgroundPlay setting permits audio continuation)
+        │
+        └─► Surface Detach Ownership: [MpvSurface.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvSurface.kt)
+              • SurfaceView.surfaceDestroyed() → sets vo = "null", force-window = "no", & executes detachSurface()
+              • Stops video rendering without force-pausing audio playback
         ▼
-[PlayerActivity.screenOffReceiver](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/PlayerActivity.kt) → viewModel.pausePlayback()
-SurfaceView.surfaceDestroyed → [MpvSurface.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvSurface.kt)
-        │  sets vo = "null", force-window = "no", and executes generation-guarded detachSurface()
-        ▼
-User returns to app → surfaceCreated → attachSurface + vo = "gpu"
+User returns to app → surfaceCreated → attachSurface + vo = "gpu" (resumes rendering)
 ```
 
 ---
@@ -573,8 +578,9 @@ User returns to app → surfaceCreated → attachSurface + vo = "gpu"
 | Back / Home | `PlayerTopBar` / system | n/a | `destroy()` + DAO upsert | Activity exits |
 | Volume key | `PlayerActivity.onKeyDown` | n/a | `MPVLib.command("keydown")` | OS volume HUD |
 | EOF reached | MPV native event | n/a | `loadfile` next or end state | Next file or end UI |
-| Background | `surfaceDestroyed` | n/a | `vo=null` → `detachSurface` | Video pauses |
-| Foreground | `surfaceCreated` | n/a | `attachSurface` → `vo=gpu` | Video resumes |
+| App backgrounded | `PlayerActivity.onPause` / `screenOffReceiver` | n/a | `pausePlayback()` (subject to pref) | Playback pauses (or audio continues) |
+| Surface destroyed | `surfaceDestroyed` | n/a | `vo=null` → `detachSurface` | Video output detaches |
+| Surface created | `surfaceCreated` | n/a | `attachSurface` → `vo=gpu` | Video output attaches |
 
 ---
 

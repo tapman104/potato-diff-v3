@@ -101,6 +101,32 @@ class EventProcessorTest {
 
         processor.onPropertyChange("hwdec", "mediacodec-copy")
         assertEquals(DecodeMode.HWPlus, playerState.value.decodeMode)
+
+        processor.onPropertyChange("hwdec", "mediacodec")
+        assertEquals(DecodeMode.HW, playerState.value.decodeMode)
+
+        processor.onPropertyChange("hwdec", "no")
+        assertEquals(DecodeMode.SW, playerState.value.decodeMode)
+    }
+
+    @Test
+    fun testPropertyChangeSpeed() {
+        val playerState = MutableStateFlow(PlayerState())
+        val positionState = MutableStateFlow(PositionState())
+        val processor = EventProcessor(scope, playerState, positionState)
+
+        processor.onPropertyChange("speed", 1.75)
+        assertEquals(1.75, playerState.value.playbackSpeed, 0.001)
+    }
+
+    @Test
+    fun testPropertyChangeVolume() {
+        val playerState = MutableStateFlow(PlayerState())
+        val positionState = MutableStateFlow(PositionState())
+        val processor = EventProcessor(scope, playerState, positionState)
+
+        processor.onPropertyChange("volume", 85.0)
+        assertEquals(85, playerState.value.volume)
     }
 
     @Test
