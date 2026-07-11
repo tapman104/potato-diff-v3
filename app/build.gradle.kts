@@ -4,15 +4,42 @@ plugins {
     alias(libs.plugins.compose.compiler)
     id("org.jetbrains.kotlin.kapt")
 }
+import java.text.SimpleDateFormat
+import java.util.Date
+
+// Automated build versioning
+val baseVersionName = "0.0.1"
+val buildTimestamp = SimpleDateFormat("yyyyMMdd.HHmm").format(Date())
+val autoVersionCode = ((System.currentTimeMillis() / 1000L) - 1700000000L).toInt().coerceAtLeast(1)
+val gitCommitCount = try {
+    val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+        .redirectErrorStream(true)
+        .start()
+    process.inputStream.bufferedReader().readText().trim().toIntOrNull() ?: 1
+} catch (e: Exception) { 1 }
+val gitSha = try {
+    val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+        .redirectErrorStream(true)
+        .start()
+    process.inputStream.bufferedReader().readText().trim()
+} catch (e: Exception) { "" }
+
+val autoVersionName = if (gitSha.isNotEmpty()) {
+    "$baseVersionName.$gitCommitCount-$gitSha ($buildTimestamp)"
+} else {
+    "$baseVersionName ($buildTimestamp)"
+}
+println("-> Building Potato Player version: $autoVersionName (versionCode: $autoVersionCode)")
+
 android {
-    namespace = "com.red.potato"
+    namespace = "com.potato.tapman104"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.red.potato"
+        applicationId = "com.potato.tapman104"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = autoVersionCode
+        versionName = autoVersionName
     }
     splits {
         abi {
