@@ -1,402 +1,81 @@
 package com.tapman104.mpvplayer.player.viewmodel
 
 import android.app.Application
-import android.net.Uri
-import android.provider.Settings
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import java.io.File
-import kotlin.math.roundToInt
-import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
-import com.tapman104.mpvplayer.core.engine.EventProcessor
-import com.tapman104.mpvplayer.core.engine.MpvController
-import com.tapman104.mpvplayer.core.engine.InitResult
-import com.tapman104.mpvplayer.util.UriResolver
-import com.tapman104.mpvplayer.player.model.*
-import com.tapman104.mpvplayer.player.state.*
-import `is`.xyz.mpv.MPVLib
-import `is`.xyz.mpv.Utils
+import com.tapman104.mpvplayer.player.engine.PlayerAction
+import com.tapman104.mpvplayer.player.engine.PlayerEngine
 
+/**
+ * Thin lifecycle bridge between the Android ViewModel lifecycle and [PlayerEngine].
+ *
+ * Responsibilities:
+ *  - Expose [PlayerEngine] state flows to the UI layer.
+ *  - Forward [dispatch] calls to [PlayerEngine].
+ *  - Call [PlayerEngine.destroy] when the ViewModel is cleared.
+ *
+ * No playback logic. No business logic. No MpvEventListener.
+ */
 class PlayerViewModel(
-    private val application: Application,
-    val controller: MpvController,
-    private val resumePositionManager: ResumePositionManager,
-    val preferencesRepository: UserPreferencesRepository,
+    application: Application,
+    private val engine: PlayerEngine,
 ) : AndroidViewModel(application) {
 
-    private val TAG = "PlayerViewModel"
+    // ── State flows ───────────────────────────────────────────────────────────
 
-    private var lastSeekTime = 0L
+    val playerState = engine.state
+    val positionState = engine.positionState
+    val playlistState = engine.playlistState
+    val subtitleAppearance = engine.subtitleAppearance
+    val preferredSubtitleLang = engine.preferredSubtitleLang
 
-    private val _positionState = MutableStateFlow(PositionState())
-    val positionState: StateFlow<PositionState> = _positionState.asStateFlow()
+    // ── Preference flows (read by PlayerActivity) ─────────────────────────────
 
-    private val _playerState = MutableStateFlow(PlayerState())
-    val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
+    val resumePlayback = engine.resumePlayback
+    val backgroundPlay = engine.backgroundPlay
+    val doubleTapSeekSeconds = engine.doubleTapSeekSeconds
+    val swipeToSeek = engine.swipeToSeek
+    val brightnessSwipe = engine.brightnessSwipe
+    val volumeSwipe = engine.volumeSwipe
+    val longPress2x = engine.longPress2x
+    val gestureSensitivity = engine.gestureSensitivity
 
-    val playlistManager = PlaylistManager(
-        context = application,
-        onLoadFile = { path -> controller.executor.loadFile(path) },
-        hasSurface = { controller.surface.hasSurface() }
-    )
+    // ── Engine reference (needed by PlayerActivity for surface wiring) ────────
 
-    private val subtitleController = SubtitleController(
-        executor = controller.executor,
-        preferencesRepository = preferencesRepository,
-        scope = viewModelScope
-    )
+    val controller get() = engine.controller
 
-    val eventProcessor = EventProcessor(
-        scope = viewModelScope,
-        playerState = _playerState,
-        positionState = _positionState,
-        onPlaybackEnded = {
-            if (controller.surface.hasSurface()) {
-                playlistManager.onPlaybackEnded()
-            }
-        },
-        onTracksLoaded = { subtitleTracks ->
-            autoSelectSubtitle(subtitleTracks)
-        }
-    )
+    // ── Dispatch ──────────────────────────────────────────────────────────────
 
-    val playlistState: StateFlow<PlaylistState> = playlistManager.playlistState
-    val subtitleAppearance: StateFlow<SubtitleAppearanceState> = subtitleController.subtitleAppearance
-    val preferredSubtitleLang: StateFlow<String> = subtitleController.preferredSubtitleLang
+    fun dispatch(action: PlayerAction) = engine.dispatch(action)
 
-    val subtitleSize = preferencesRepository.subtitleSize
-    val subtitlePosition = preferencesRepository.subtitlePosition
-    val resumePlayback = preferencesRepository.resumePlayback
-    val decodeModePreference = preferencesRepository.decodeMode
+    // ── Subtitle appearance delegates (not PlayerAction variants) ─────────────
 
-    val debandFilter = preferencesRepository.debandFilter
-    val videoScale = preferencesRepository.videoScale
-    val volumeBoost = preferencesRepository.volumeBoost
-    val pitchCorrection = preferencesRepository.pitchCorrection
-    val audioOutputDriver = preferencesRepository.audioOutputDriver
-    val doubleTapSeekSeconds = preferencesRepository.doubleTapSeekSeconds
-    val swipeToSeek = preferencesRepository.swipeToSeek
-    val brightnessSwipe = preferencesRepository.brightnessSwipe
-    val volumeSwipe = preferencesRepository.volumeSwipe
-    val longPress2x = preferencesRepository.longPress2x
-    val gestureSensitivity = preferencesRepository.gestureSensitivity
-    val backgroundPlay = preferencesRepository.backgroundPlay
+    fun setSubtitleSize(size: Float) = engine.setSubtitleSize(size)
+    fun setSubtitlePosition(position: Float) = engine.setSubtitlePosition(position)
+    fun resetSubtitleAppearance() = engine.resetSubtitleAppearance()
+    fun setSubtitleFontColor(color: String) = engine.setSubtitleFontColor(color)
+    fun setSubtitleBold(bold: Boolean) = engine.setSubtitleBold(bold)
+    fun setSubtitleBorderStyle(style: String) = engine.setSubtitleBorderStyle(style)
+    fun setSubtitleBorderSize(size: Float) = engine.setSubtitleBorderSize(size)
+    fun setSubtitleShadow(shadow: Float) = engine.setSubtitleShadow(shadow)
+    fun setSubtitleBackgroundAlpha(alpha: Float) = engine.setSubtitleBackgroundAlpha(alpha)
+    fun setSubtitleAppearance(size: Float, position: Float) = engine.setSubtitleAppearance(size, position)
+    fun setPreferredSubtitleLanguage(lang: String) = engine.setPreferredSubtitleLanguage(lang)
 
-    init {
-        resumePositionManager.attach(viewModelScope) { _positionState.value.durationMs }
-        controller.dispatcher.addListener(eventProcessor)
-        controller.init()
-        controller.surface.setSurfaceReadyCallback {
-            onSurfaceReady()
-        }
-        viewModelScope.launch {
-            when (val result = controller.initResult.first()) {
-                is InitResult.Success -> {
-                    viewModelScope.launch {
-                        preferencesRepository.decodeMode.collect { modeStr ->
-                            val mode = when (modeStr) {
-                                DecodeMode.HWPlus.mpvValue -> DecodeMode.HWPlus
-                                DecodeMode.SW.mpvValue -> DecodeMode.SW
-                                else -> DecodeMode.HW
-                            }
-                            if (_playerState.value.decodeMode != mode) {
-                                controller.executor.setHwdec(mode.mpvValue)
-                                _playerState.update { it.copy(decodeMode = mode) }
-                            }
-                        }
-                    }
-                    viewModelScope.launch {
-                        preferencesRepository.debandFilter.collect { deband ->
-                            controller.executor.execute { MPVLib.setPropertyBoolean("deband", deband) }
-                        }
-                    }
-                    viewModelScope.launch {
-                        preferencesRepository.videoScale.collect { scale ->
-                            controller.executor.execute { MPVLib.setPropertyString("scale", scale) }
-                        }
-                    }
-                    viewModelScope.launch {
-                        preferencesRepository.volumeBoost.collect { boost ->
-                            controller.executor.execute {
-                                MPVLib.setPropertyInt("volume-max", boost)
-                                if (boost > 100) {
-                                    MPVLib.setPropertyInt("volume", boost)
-                                }
-                            }
-                        }
-                    }
-                    viewModelScope.launch {
-                        preferencesRepository.pitchCorrection.collect { enabled ->
-                            controller.executor.execute { MPVLib.setPropertyBoolean("audio-pitch-correction", enabled) }
-                        }
-                    }
-                    viewModelScope.launch {
-                        preferencesRepository.audioOutputDriver.collect { ao ->
-                            controller.executor.execute { MPVLib.setPropertyString("ao", ao) }
-                        }
-                    }
-                }
-                is InitResult.Failure -> _playerState.update { it.copy(error = result.message, hasError = true, isLoading = false) }
-            }
-        }
-    }
+    // ── Resume position delegates ─────────────────────────────────────────────
 
-    // ---------------------------------------------------------------------------
-    // Playback controls
-    // ---------------------------------------------------------------------------
+    fun saveCurrentPosition(filePath: String, positionMs: Long) =
+        engine.saveCurrentPosition(filePath, positionMs)
 
-    fun play() = controller.executor.play()
-    fun togglePlay() = controller.executor.togglePlay()
-    
-    fun seekGestureDrag(positionMs: Long) {
-        eventProcessor.isSliderSeeking = true
-        lastSeekTime = System.currentTimeMillis()
-        controller.executor.seekGesture(positionMs / 1000.0)
-    }
+    fun loadResumePosition(filePath: String, onResult: (Long?) -> Unit) =
+        engine.loadResumePosition(filePath, onResult)
 
-    fun seekCommit(positionMs: Long) {
-        eventProcessor.isSliderSeeking = false
-        lastSeekTime = 0L
-        eventProcessor.lastTimePosUpdate = 0L
-        controller.executor.seekCommit(positionMs / 1000.0)
-    }
-    
-    fun seekRelative(offsetMs: Long) {
-        lastSeekTime = System.currentTimeMillis()
-        controller.executor.seekRelativeCoalesced(offsetMs / 1000.0)
-    }
-    
-    fun setSpeed(speed: Float) = controller.executor.setSpeed(speed.toDouble())
+    fun clearResumePosition(filePath: String) =
+        engine.clearResumePosition(filePath)
 
-    private var preOverrideSpeed: Float = 1f
-    private var isSpeedOverridden: Boolean = false
-
-    fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int = 5, stepDurationMs: Long = 16L) {
-        if (!isSpeedOverridden) {
-            preOverrideSpeed = _playerState.value.speed
-            isSpeedOverridden = true
-        }
-        setSpeed(targetSpeed)
-    }
-
-    fun restorePlaybackSpeed() {
-        if (isSpeedOverridden) {
-            setSpeed(preOverrideSpeed)
-            isSpeedOverridden = false
-        }
-    }
-
-    fun setVolume(volume: Int) {
-        val volInt = volume.coerceIn(0, 130)
-        controller.executor.setVolume(volInt)
-        _playerState.update { it.copy(volume = volInt) }
-    }
-    fun setAudioTrack(id: Int) {
-        if (_playerState.value.currentAudioTrackId == id) return
-        controller.executor.setAudioTrack(id)
-        _playerState.update { it.copy(currentAudioTrackId = id) }
-    }
-    fun addAudioTrack(uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val path = resolveTrackPath(uri) ?: return@launch
-            controller.executor.addAudioTrack(path)
-        }
-    }
-    fun setSubtitleTrack(id: Int) {
-        if (_playerState.value.currentSubtitleTrackId == id) return
-        controller.executor.setSubtitleTrack(id)
-        _playerState.update { it.copy(currentSubtitleTrackId = id) }
-    }
-    fun addSubtitle(uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val path = resolveTrackPath(uri) ?: return@launch
-            controller.executor.addSubtitle(path)
-        }
-    }
-
-    private suspend fun resolveTrackPath(uri: Uri): String? {
-        if (uri.scheme != "content") {
-            return uri.path ?: uri.toString()
-        }
-        val fd = application.contentResolver.openFileDescriptor(uri, "r") ?: return null
-        val realPath = Utils.findRealPath(fd.fd)
-        fd.close()
-
-        return realPath ?: run {
-            // Fallback: copy to cache
-            val ext = UriResolver.getDisplayName(application, uri).substringAfterLast('.', "tmp")
-            val cache = File(application.cacheDir, "ext_track_${System.currentTimeMillis()}.$ext")
-            val copied = application.contentResolver.openInputStream(uri)?.use { input ->
-                cache.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            } != null
-            if (!copied) return null
-            cache.absolutePath
-        }
-    }
-
-    fun setAspectRatio(mode: AspectRatioMode) {
-        if (_playerState.value.aspectRatioMode == mode) return
-        _playerState.update { it.copy(aspectRatioMode = mode) }
-        when (mode) {
-            // DEFAULT and FIT both use container aspect with no panscan. DEFAULT honours the
-            // container's embedded aspect; FIT explicitly forces the same — both are equivalent
-            // for standard content but are kept separate for future divergence (e.g. letterbox
-            // vs. cropped-fit semantics).
-            AspectRatioMode.DEFAULT,
-            AspectRatioMode.FIT -> controller.executor.execute {
-                MPVLib.setPropertyString("video-aspect-override", "no")
-                MPVLib.setPropertyString("video-aspect-mode", "container")
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-unscaled", "no")
-            }
-            AspectRatioMode.CROP -> controller.executor.execute {
-                MPVLib.setPropertyString("video-aspect-override", "no")
-                MPVLib.setPropertyString("video-aspect-mode", "container")
-                MPVLib.setPropertyDouble("panscan", 1.0)
-                MPVLib.setPropertyString("video-unscaled", "no")
-            }
-            AspectRatioMode.STRETCH -> controller.executor.execute {
-                MPVLib.setPropertyString("video-aspect-override", "no")
-                MPVLib.setPropertyString("video-aspect-mode", "none")
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-unscaled", "no")
-            }
-        }
-    }
-
-    // ---------------------------------------------------------------------------
-    // Load / URI
-    // ---------------------------------------------------------------------------
-
-    fun loadAndPlay(uri: Uri) {
-        _playerState.update { it.copy(isLoading = true, error = null, hasError = false) }
-        playlistManager.loadAndPlay(uri)
-    }
-
-    fun onSurfaceReady() {
-        playlistManager.onSurfaceReady()
-    }
-
-    /** Pauses playback immediately — used by screen-off receiver. */
-    fun pausePlayback() {
-        if (_playerState.value.isPaused) return
-        controller.executor.pause()
-        _playerState.update { it.copy(isPaused = true) }
-    }
-
-    // ---------------------------------------------------------------------------
-    // Playlist
-    // ---------------------------------------------------------------------------
-
-    fun setPlaylist(uris: List<Uri>) = playlistManager.setPlaylist(uris)
-    fun addToPlaylist(uri: Uri) = playlistManager.addToPlaylist(uri)
-    fun playNext() = playlistManager.playNext()
-    fun playPrevious() = playlistManager.playPrevious()
-    fun playAt(index: Int) = playlistManager.playAt(index)
-
-    // ---------------------------------------------------------------------------
-    // Decode mode
-    // ---------------------------------------------------------------------------
-
-    fun setDecodeMode(mode: DecodeMode) = cycleDecodeMode(mode)
-
-    fun cycleDecodeMode(next: DecodeMode, resumeAfter: Boolean = false) {
-        val mpvMode = when (next) {
-            DecodeMode.HW     -> "mediacodec"
-            DecodeMode.HWPlus -> "mediacodec-copy"
-            DecodeMode.SW     -> "no"
-        }
-        controller.executor.setHwdec(mpvMode)
-        if (resumeAfter) controller.executor.play()
-        viewModelScope.launch {
-            preferencesRepository.setDecodeMode(mpvMode)
-        }
-    }
-
-    // ---------------------------------------------------------------------------
-    // Zoom / Pan
-    // ---------------------------------------------------------------------------
-
-    fun setVideoZoom(zoom: Float) {
-        if (_playerState.value.videoZoom == zoom) return
-        controller.executor.setVideoZoom(zoom)
-        _playerState.update { it.copy(videoZoom = zoom) }
-    }
-
-    fun setVideoPan(panX: Float, panY: Float) {
-        if (_playerState.value.videoPanX == panX && _playerState.value.videoPanY == panY) return
-        controller.executor.setVideoPan(panX, panY)
-        _playerState.update { it.copy(videoPanX = panX, videoPanY = panY) }
-    }
-
-    // ---------------------------------------------------------------------------
-    // Subtitle appearance
-    // ---------------------------------------------------------------------------
-
-    fun setSubtitleFontColor(color: String) = subtitleController.setSubtitleFontColor(color)
-    fun setSubtitleBold(bold: Boolean) = subtitleController.setSubtitleBold(bold)
-    fun setSubtitleBorderStyle(style: String) = subtitleController.setSubtitleBorderStyle(style)
-    fun setSubtitleBorderSize(size: Float) = subtitleController.setSubtitleBorderSize(size)
-    fun setSubtitleShadow(shadow: Float) = subtitleController.setSubtitleShadow(shadow)
-    fun setSubtitleBackgroundAlpha(alpha: Float) = subtitleController.setSubtitleBackgroundAlpha(alpha)
-    fun setSubtitleAppearance(size: Float, position: Float) = subtitleController.setSubtitleAppearance(size, position)
-    fun resetSubtitleAppearance() = subtitleController.resetSubtitleAppearance()
-
-    // ---------------------------------------------------------------------------
-    // Resume position
-    // ---------------------------------------------------------------------------
-
-    fun saveCurrentPosition(filePath: String, positionMs: Long) = resumePositionManager.saveCurrentPosition(filePath, positionMs)
-    fun loadResumePosition(filePath: String, onResult: (Long?) -> Unit) = resumePositionManager.loadResumePosition(filePath, onResult)
-    fun clearResumePosition(filePath: String) = resumePositionManager.clearResumePosition(filePath)
-
-    // ---------------------------------------------------------------------------
-    // Auto-subtitle selection
-    // ---------------------------------------------------------------------------
-
-    fun autoSelectSubtitle(tracks: List<SubtitleTrack>) = subtitleController.autoSelectSubtitle(tracks)
-    fun setPreferredSubtitleLanguage(lang: String) = subtitleController.setPreferredSubtitleLanguage(lang)
-    fun setSubtitleSize(size: Float) = subtitleController.setSubtitleSize(size)
-    fun setSubtitlePosition(position: Float) = subtitleController.setSubtitlePosition(position)
-
-    fun currentBrightness(): Float = getScreenBrightness()
-    val screenWidthPx: Float get() = application.resources.displayMetrics.widthPixels.toFloat()
-    val screenHeightPx: Float get() = application.resources.displayMetrics.heightPixels.toFloat()
-
-    private fun getScreenBrightness(): Float {
-        return try {
-            val sysBrightness = Settings.System.getInt(application.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128)
-            (sysBrightness / 255f).coerceIn(0f, 1f)
-        } catch (e: Exception) {
-            0.5f
-        }
-    }
-
-    fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
-        controller.executor.setVideoZoom(zoomLog2)
-        controller.executor.setVideoPan(panX, panY)
-        _playerState.update { it.copy(videoZoom = zoomLog2, videoPanX = panX, videoPanY = panY) }
-    }
-
-
-    // ---------------------------------------------------------------------------
-    // Lifecycle
-    // ---------------------------------------------------------------------------
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCleared() {
-        controller.dispatcher.removeListener(eventProcessor)
-        controller.destroy()
+        engine.destroy()
         super.onCleared()
     }
 }

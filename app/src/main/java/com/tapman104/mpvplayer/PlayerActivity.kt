@@ -25,6 +25,7 @@ import com.tapman104.mpvplayer.ui.theme.MpvPlayerTheme
 import com.tapman104.mpvplayer.util.UriResolver
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
+import com.tapman104.mpvplayer.player.engine.PlayerAction
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.core.engine.MpvController
 import com.tapman104.mpvplayer.settings.SettingsViewModel
@@ -48,7 +49,7 @@ class PlayerActivity : ComponentActivity() {
     private val screenOffReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == Intent.ACTION_SCREEN_OFF) {
-                viewModel.pausePlayback()
+                viewModel.dispatch(PlayerAction.PausePlayback)
             }
         }
     }
@@ -57,7 +58,7 @@ class PlayerActivity : ComponentActivity() {
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.loadAndPlay(it)
+            viewModel.dispatch(PlayerAction.LoadAndPlay(it))
         }
     }
 
@@ -65,7 +66,7 @@ class PlayerActivity : ComponentActivity() {
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.addSubtitle(it)
+            viewModel.dispatch(PlayerAction.AddSubtitle(it))
         }
     }
 
@@ -73,7 +74,7 @@ class PlayerActivity : ComponentActivity() {
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.addAudioTrack(it)
+            viewModel.dispatch(PlayerAction.AddAudioTrack(it))
         }
     }
 
@@ -164,7 +165,7 @@ class PlayerActivity : ComponentActivity() {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         val path = currentFilePath ?: return@LaunchedEffect
                         val posMs = positionState.currentPositionMs
-                        viewModel.saveCurrentPosition(path, posMs)
+                        viewModel.saveCurrentPosition(path, posMs)  // not a PlayerAction (resume manager delegate)
                     }
                 }
 
@@ -172,7 +173,7 @@ class PlayerActivity : ComponentActivity() {
                 LaunchedEffect(playlistState.currentUri) {
                     val uriStr = playlistState.currentUri ?: return@LaunchedEffect
                     currentFilePath = uriStr
-                    viewModel.loadResumePosition(uriStr) { savedMs ->
+                    viewModel.loadResumePosition(uriStr) { savedMs ->  // not a PlayerAction (resume manager delegate)
                         if (savedMs != null && savedMs > 5000L && resumePlaybackEnabled) {
                             pendingResumeMs = savedMs
                         } else {
@@ -183,7 +184,7 @@ class PlayerActivity : ComponentActivity() {
 
                 LaunchedEffect(playerState.isLoading, pendingResumeMs) {
                     if (!playerState.isLoading && pendingResumeMs > 0L) {
-                        viewModel.seekCommit(pendingResumeMs)
+                        viewModel.dispatch(PlayerAction.SeekCommit(pendingResumeMs))
                         pendingResumeMs = 0L
                     }
                 }
@@ -195,35 +196,35 @@ class PlayerActivity : ComponentActivity() {
                     playerState = playerState,
                     positionState = positionState,
                     surfaceView = surfaceView,
-                    onTogglePlay = { viewModel.togglePlay() },
+                    onTogglePlay = { viewModel.dispatch(PlayerAction.TogglePlay) },
                     initialBrightness = initialBrightness,
                     onBrightnessChange = updateWindowBrightness,
-                    onSeekForward = { viewModel.seekRelative(it) },
-                    onSeekBackward = { viewModel.seekRelative(-it) },
-                    onSeekGestureDrag = { viewModel.seekGestureDrag(it) },
-                    onSeekCommit = { viewModel.seekCommit(it) },
-                    onSpeedOverride = { viewModel.setPlaybackSpeedRamped(it) },
-                    onSpeedRestore = { viewModel.restorePlaybackSpeed() },
-                    onZoomChange = { viewModel.setVideoZoom(it) },
-                    onVolumeChange = { viewModel.setVolume(it) },
+                    onSeekForward = { viewModel.dispatch(PlayerAction.SeekRelative(it)) },
+                    onSeekBackward = { viewModel.dispatch(PlayerAction.SeekRelative(-it)) },
+                    onSeekGestureDrag = { viewModel.dispatch(PlayerAction.SeekGestureDrag(it)) },
+                    onSeekCommit = { viewModel.dispatch(PlayerAction.SeekCommit(it)) },
+                    onSpeedOverride = { viewModel.dispatch(PlayerAction.SetPlaybackSpeedRamped(it)) },
+                    onSpeedRestore = { viewModel.dispatch(PlayerAction.RestorePlaybackSpeed) },
+                    onZoomChange = { viewModel.dispatch(PlayerAction.SetZoomAndPan(it, 0f, 0f)) },
+                    onVolumeChange = { viewModel.dispatch(PlayerAction.SetVolume(it)) },
                     onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
                     onBack = { finish() },
                     onOpenSettings = {
                         showSettings = true
                         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                     },
-                    onAudioTrackSelected = { viewModel.setAudioTrack(it) },
+                    onAudioTrackSelected = { viewModel.dispatch(PlayerAction.SetAudioTrack(it)) },
                     onAddAudioClick = { audioPickerLauncher.launch(arrayOf("audio/*")) },
-                    onSubtitleTrackSelected = { viewModel.setSubtitleTrack(it) },
-                    onDisableSubtitles = { viewModel.setSubtitleTrack(-1) },
+                    onSubtitleTrackSelected = { viewModel.dispatch(PlayerAction.SetSubtitleTrack(it)) },
+                    onDisableSubtitles = { viewModel.dispatch(PlayerAction.SetSubtitleTrack(-1)) },
                     onAddSubtitleClick = {
                         subtitlePickerLauncher.launch(
                             arrayOf("application/x-subrip", "text/x-ass", "text/vtt", "application/octet-stream", "*/*")
                         )
                     },
-                    onCycleDecodeMode = { newMode -> viewModel.cycleDecodeMode(newMode, resumeAfter = true) },
-                    onPause = viewModel::pausePlayback,
-                    onPlay = viewModel::play,
+                    onCycleDecodeMode = { newMode -> viewModel.dispatch(PlayerAction.SetDecodeMode(newMode)) },
+                    onPause = { viewModel.dispatch(PlayerAction.PausePlayback) },
+                    onPlay = { viewModel.dispatch(PlayerAction.Play) },
                     onSubtitleSizeChange = { viewModel.setSubtitleSize(it) },
                     onSubtitlePositionChange = { viewModel.setSubtitlePosition(it) },
                     onSubtitleAppearanceReset = { viewModel.resetSubtitleAppearance() },
@@ -251,12 +252,12 @@ class PlayerActivity : ComponentActivity() {
         }
 
         // Handle direct launch from a file manager or intent
-        intent.data?.let { viewModel.loadAndPlay(it) }
+        intent.data?.let { viewModel.dispatch(PlayerAction.LoadAndPlay(it)) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.data?.let { viewModel.loadAndPlay(it) }
+        intent.data?.let { viewModel.dispatch(PlayerAction.LoadAndPlay(it)) }
     }
 
     override fun onPause() {
@@ -264,7 +265,7 @@ class PlayerActivity : ComponentActivity() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         when (currentBackgroundPlayPref) {
             "off" -> {
-                viewModel.pausePlayback()
+                viewModel.dispatch(PlayerAction.PausePlayback)
             }
             "always" -> {
                 // Do nothing — playback continues when minimized/backgrounded
@@ -276,11 +277,11 @@ class PlayerActivity : ComponentActivity() {
                     am.isWiredHeadsetOn || am.isBluetoothA2dpOn
                 } ?: false
                 if (!headphonesConnected) {
-                    viewModel.pausePlayback()
+                    viewModel.dispatch(PlayerAction.PausePlayback)
                 }
             }
             else -> {
-                viewModel.pausePlayback()
+                viewModel.dispatch(PlayerAction.PausePlayback)
             }
         }
     }
