@@ -8,18 +8,19 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
-import com.tapman104.mpvplayer.player.controls.PlayerQuickActions
-import com.tapman104.mpvplayer.player.controls.PlayerTopBar
+import mpv.potato.tapman104.player.controls.PlayerBottomControls
+import mpv.potato.tapman104.player.controls.PlayerTopBar
 import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
@@ -179,28 +180,24 @@ fun PlayerOverlay(
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            PlayerTopBar(
-                fileName = fileName,
-                onBack = onBack
-            )
-        }
-
-        // ── QUICK ACTIONS ─────────────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = controlsVisible,
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(200)),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 64.dp, start = 8.dp)
-        ) {
-            PlayerQuickActions(
-                decodeMode = playerState.decodeMode,
-                onSelectAudioTrack = remember { { showAudioDialog = true } },
-                onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
-                onDecodeModeClick = remember { { showDecodeModeDialog = true } },
-                onMoreOptions = remember { { showMoreOptionsSheet = true } }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.72f),
+                                Color.Black.copy(alpha = 0.30f),
+                                Color.Transparent,
+                            )
+                        )
+                    )
+            ) {
+                PlayerTopBar(
+                    fileName = fileName,
+                    onBack = onBack
+                )
+            }
         }
 
         // ── BOTTOM CONTROLS ───────────────────────────────────────────────────
@@ -210,17 +207,36 @@ fun PlayerOverlay(
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            PlayerBottomControls(
-                isPlaying = playerState.isPlaying,
-                currentPositionMs = positionState.currentPositionMs,
-                durationMs = positionState.durationMs,
-                bufferPositionMs = positionState.demuxerCacheTimeMs,
-                gestureSeekPreviewMs = gestureSeekPreviewMs,
-                onTogglePlay = onTogglePlay,
-                onSeek = onSeekCommitAction,
-                onSeekGesture = onSeekGestureDrag,
-                onSeekPreviewMs = onSeekPreviewMs
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.45f),
+                                Color.Black.copy(alpha = 0.82f),
+                            )
+                        )
+                    )
+            ) {
+                PlayerBottomControls(
+                    isPlaying = playerState.isPlaying,
+                    currentPositionMs = positionState.currentPositionMs,
+                    durationMs = positionState.durationMs,
+                    bufferPositionMs = positionState.demuxerCacheTimeMs,
+                    gestureSeekPreviewMs = gestureSeekPreviewMs,
+                    decodeMode = playerState.decodeMode,
+                    onTogglePlay = onTogglePlay,
+                    onSeek = onSeekCommitAction,
+                    onSeekGesture = onSeekGestureDrag,
+                    onSeekPreviewMs = onSeekPreviewMs,
+                    onSelectAudioTrack = remember { { showAudioDialog = true } },
+                    onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
+                    onDecodeModeClick = remember { { showDecodeModeDialog = true } },
+                    onMoreOptions = remember { { showMoreOptionsSheet = true } }
+                )
+            }
         }
 
         // ── LOADING INDICATOR ─────────────────────────────────────────────────

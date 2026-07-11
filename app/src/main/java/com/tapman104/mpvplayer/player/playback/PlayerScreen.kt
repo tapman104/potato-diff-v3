@@ -11,6 +11,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import com.tapman104.mpvplayer.player.model.DecodeMode
+import mpv.potato.tapman104.ui.theme.PlayerTheme
 
 @Composable
 fun PlayerScreen(
@@ -67,42 +68,44 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        PlayerOverlay(
-            fileName = fileName,
-            playerState = playerState,
-            positionState = positionState,
-            onSeekForward = onSeekForward,
-            onSeekBackward = onSeekBackward,
-            onSeekGestureDrag = onSeekGestureDrag,
-            onSeekCommit = onSeekCommit,
-            onSpeedOverride = onSpeedOverride,
-            onSpeedRestore = onSpeedRestore,
-            onZoomChange = onZoomChange,
-            onVolumeChange = onVolumeChange,
-            onOpenFile = onOpenFile,
-            onBack = onBack,
-            onOpenSettings = onOpenSettings,
-            initialBrightness = initialBrightness,
-            onBrightnessChange = onBrightnessChange,
-            onTogglePlay = onTogglePlay,
-            onAudioTrackSelected = onAudioTrackSelected,
-            onAddAudioClick = onAddAudioClick,
-            onSubtitleTrackSelected = onSubtitleTrackSelected,
-            onDisableSubtitles = onDisableSubtitles,
-            onAddSubtitleClick = onAddSubtitleClick,
-            onCycleDecodeMode = onCycleDecodeMode,
-            onPause = onPause,
-            onPlay = onPlay,
-            onSubtitleSizeChange = onSubtitleSizeChange,
-            onSubtitlePositionChange = onSubtitlePositionChange,
-            onSubtitleAppearanceReset = onSubtitleAppearanceReset,
-            doubleTapSeekSeconds = doubleTapSeekSeconds,
-            swipeToSeek = swipeToSeek,
-            brightnessSwipe = brightnessSwipe,
-            volumeSwipe = volumeSwipe,
-            longPress2x = longPress2x,
-            gestureSensitivity = gestureSensitivity,
-            modifier = Modifier.fillMaxSize()
-        )
+        PlayerTheme {
+            PlayerOverlay(
+                fileName = fileName,
+                playerState = playerState,
+                positionState = positionState,
+                onSeekForward = onSeekForward,
+                onSeekBackward = onSeekBackward,
+                onSeekGestureDrag = onSeekGestureDrag,
+                onSeekCommit = onSeekCommit,
+                onSpeedOverride = onSpeedOverride,
+                onSpeedRestore = onSpeedRestore,
+                onZoomChange = onZoomChange,
+                onVolumeChange = onVolumeChange,
+                onOpenFile = onOpenFile,
+                onBack = onBack,
+                onOpenSettings = onOpenSettings,
+                initialBrightness = initialBrightness,
+                onBrightnessChange = onBrightnessChange,
+                onTogglePlay = onTogglePlay,
+                onAudioTrackSelected = onAudioTrackSelected,
+                onAddAudioClick = onAddAudioClick,
+                onSubtitleTrackSelected = onSubtitleTrackSelected,
+                onDisableSubtitles = onDisableSubtitles,
+                onAddSubtitleClick = onAddSubtitleClick,
+                onCycleDecodeMode = onCycleDecodeMode,
+                onPause = onPause,
+                onPlay = onPlay,
+                onSubtitleSizeChange = onSubtitleSizeChange,
+                onSubtitlePositionChange = onSubtitlePositionChange,
+                onSubtitleAppearanceReset = onSubtitleAppearanceReset,
+                doubleTapSeekSeconds = doubleTapSeekSeconds,
+                swipeToSeek = swipeToSeek,
+                brightnessSwipe = brightnessSwipe,
+                volumeSwipe = volumeSwipe,
+                longPress2x = longPress2x,
+                gestureSensitivity = gestureSensitivity,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }

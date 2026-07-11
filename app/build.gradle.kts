@@ -5,10 +5,10 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 android {
-    namespace = "com.tapman104.mpvplayer"
+    namespace = "com.red.potato"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.tapman104.mpvplayer"
+        applicationId = "com.red.potato"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
