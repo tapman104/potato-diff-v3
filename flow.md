@@ -20,15 +20,16 @@ In a modern reactive Android application built with **Jetpack Compose**, **MVVM*
 |           Guards state updates against redundant recompositions via equality checks.               |
 |                                                                                                    |
 |  2. NATIVE MEDIA ENGINE LEADERS                                                                    |
-|     Files: [MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt) & [MpvOptionsConfigurator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvOptionsConfigurator.kt)               |
+|     Files: [MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt), [EventProcessor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/EventProcessor.kt) & [MpvOptionsConfigurator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvOptionsConfigurator.kt) |
 |     Role: The bridge between Kotlin and native C/C++ `libmpv`. Commands surface binding with       |
-|           generation-aware safety, configures engine options/VO, and dispatches native events back.|
+|           generation-aware safety, configures engine options/VO, processes events with throttled   |
+|           time-pos updates (~5 Hz) and seek suppression, and dispatches state updates back.        |
 |                                                                                                    |
 |  3. TOUCH, GESTURE & OVERLAY LEADERS                                                               |
-|     Files: [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt), [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) & [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt) |
-|     Role: The input governor and overlay router. Captures multi-touch gestures, classifies pointer   |
-|           events through a single-ownership state machine, modifies OS volume/brightness, and      |
-|           routes visual overlays through [OverlayController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/OverlayController.kt).                       |
+|     Files: [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) & [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt)                              |
+|     Role: The input governor implementing `MpvPlayerController`. Captures multi-touch gestures,    |
+|           classifies pointer events through a single-ownership state machine, modifies OS volume/  |
+|           brightness, and routes visual overlays directly through [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt).              |
 |                                                                                                    |
 |  4. UI PRESENTATION LEADERS                                                                        |
 |     Files: [PlayerScreen.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerScreen.kt) & [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt)                         |
@@ -66,21 +67,21 @@ The codebase is organized into five distinct layers. Data flows **downward** as 
                  |                                      |                                      |
                  v                                      v                                      v
          [PlayerVideo.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerVideo.kt)                         [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt)                        [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt)
-    (Wraps Android SurfaceView)                         |                                      |
-                 |                     +----------------+----------------+                     v
+    (Wraps Android SurfaceView)                         |                          (Implements MpvPlayerController)
+                 |                     +----------------+----------------+                     |
                  |                     |                |                |         [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt)
                  |                     v                v                v                     |
                  |            [PlayerTopBar]   [BottomControls]  [QuickActions]                v
-                 |                     |                |                |          [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt)
-                 |                     +----------------+----------------+      (Implements MpvPlayerController)
-                 |                                      |                              |       |
-                 |                              (User Commands)                        |       v
-                 |                                      |                              | [OverlayController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/OverlayController.kt)
-                 |                                      v                              |       |
-                 |                             [MoreOptionsSheet.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/dialogs/MoreOptionsSheet.kt)                 |       v
-                 |                        (Playback Speed, FileInfo, Settings)         v [GestureIndicators.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureIndicators.kt)
-                 v                                      |                              |
-========================================================|==============================|==============
+                 |                     |                |                |          [GestureIndicators.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureIndicators.kt)
+                 |                     +----------------+----------------+       (Visual Feedback Overlays)
+                 |                                      |
+                 |                              (User Commands)
+                 |                                      |
+                 |                                      v
+                 |                             [MoreOptionsSheet.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/dialogs/MoreOptionsSheet.kt)
+                 |                        (Playback Speed, FileInfo, Settings)
+                 v                                      |
+========================================================|=====================================================
                               LAYER 3: STATE & BUSINESS LOGIC LAYER (ViewModel)        |
 ========================================================|==============================|==============
                                               [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt) <------------------+
@@ -102,12 +103,12 @@ The codebase is organized into five distinct layers. Data flows **downward** as 
 ======================================================================================================
                                                [MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt)
                                                         |
-                 +-------------------+------------------+-------------------+
-                 |                   |                  |                   |
-                 v                   v                  v                   v
-      [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt)      [MpvSurface.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvSurface.kt)   [MpvOptionsConfigurator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvOptionsConfigurator.kt)  [MpvEventDispatcher.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvEventDispatcher.kt)
-    (Sends C-strings & Debounced (Generation-Aware   (Configures Pre-init    (Receives Native Events &
-     Seeks to libmpv thread)      Surface Binding)    VO, GPU & Font Assets)  Property Change Callbacks)
+                 +-------------------+------------------+-------------------+-------------------+
+                 |                   |                  |                   |                   |
+                 v                   v                  v                   v                   v
+      [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt)      [MpvSurface.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvSurface.kt)   [MpvOptionsConfigurator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvOptionsConfigurator.kt)  [MpvEventDispatcher.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvEventDispatcher.kt)    [EventProcessor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/EventProcessor.kt)
+    (Sends C-strings & Debounced (Generation-Aware   (Configures Pre-init    (Receives Native    (Throttles time-pos ~5 Hz
+     Seeks to libmpv thread)      Surface Binding)    VO, GPU & Font Assets)  Property Callbacks) & Suppresses Seek Echo)
                  |                   |                  |                   ^
                  |                   |                  |                   |
                  v                   v                  v           (Property Changes)
@@ -222,8 +223,8 @@ When a user interacts with on-screen controls (e.g., clicking **Play/Pause** or 
 
 ---
 
-### Pipeline C: Touch Gesture & Overlay Routing via PlayerCoordinator
-When a user gestures on the playback screen, input is intercepted by [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) and governed by [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt), routed through [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt):
+### Pipeline C: Touch Gesture & Overlay Routing via GestureHandler & PlayerOverlay
+When a user gestures on the playback screen, input is intercepted by [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) (which directly implements `MpvPlayerController`) and governed by [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt):
 
 ```
 [User Swipes, Taps, or Pinches on Playback Viewport]
@@ -237,10 +238,10 @@ When a user gestures on the playback screen, input is intercepted by [GestureHan
        ├─► 3. Evaluates active pointers against current `GestureState` (`TapCandidate`, `MultiTapSeeking`, `LongPress`, `DynamicSpeedScrub`, `VerticalSwipe`, `HorizontalSeek`, `PinchZoomPan`).
        │
        ▼
-[PlayerCoordinator implementation of MpvPlayerController]
+[GestureHandler implementation of MpvPlayerController]
        │
-       ├─► 4. Playback Commands: Calls `viewModel.seekTo()`, `viewModel.setSpeed()`, `viewModel.setVolume()`, or modifies OS brightness.
-       ├─► 5. Overlay Routing: Calls `overlay.showBrightnessOverlay()`, `overlay.showVolumeOverlay()`, `overlay.showSpeedOverlay()`, or `overlay.showHorizontalSeekOverlay()` via [OverlayController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/OverlayController.kt).
+       ├─► 4. Playback Commands: Directly calls `viewModel.seekTo()`, `viewModel.setSpeed()`, `viewModel.setVolume()`, or modifies OS brightness.
+       ├─► 5. Overlay Routing: Directly coordinates with visual overlay callbacks provided by [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) for volume, brightness, speed, seek ripples, and auto-hide controls timers.
        │
        ▼
 [Modular Visual Feedback Indicators in GestureIndicators.kt & PlayerOverlay]
@@ -305,6 +306,7 @@ The following matrix documents every file in the project, defining who controls 
 ### A. Core Engine & Native Interface (`core/engine/`)
 | File & Link | Role & Responsibility | Primary Functions / Methods | Controlled By | Commands / Dependencies |
 | :--- | :--- | :--- | :--- | :--- |
+| **[EventProcessor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/EventProcessor.kt)** | **Event Processing Leader.** Decouples native `MpvEventListener` event handling (`onFileLoaded`, `onPlaybackStarted`, `onPlaybackStopped`, `onPropertyChange`), performs equality checks, throttles high-frequency `time-pos` updates (~5 Hz outside seek drag), and suppresses echo-backs during slider seeking. | `onFileLoaded()`, `onPlaybackStarted()`, `onPlaybackStopped()`, `onPropertyChange()` | `MpvEventDispatcher` | `PlayerViewModel` |
 | **[MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt)** | **Engine Facade Leader.** Initializes libmpv, sets GPU context, configures engine options via `configurator`, and connects property observers. | `init()`, `destroy()`, `copyFontAsset()` | `PlayerViewModel` | `MpvCommandExecutor`, `MpvEventDispatcher`, `MpvOptionsConfigurator`, `MpvSurface`, `MPVLib` (JNI) |
 | **[MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt)** | **Thread-Safe Engine Translator.** Queues commands on a single-thread executor; implements debounced seek gesturing and generation-aware surface detachment. | `execute()`, `nextSurfaceGeneration()`, `detachSurface()`, `seekGesture()`, `seekCommit()`, `loadFile()`, `setSpeed()` | `MpvController`, `PlayerViewModel`, `MpvSurface`, `GestureHandler` | `MPVLib.command()`, `MPVLib.setProperty*()` |
 | **[MpvEventDispatcher.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvEventDispatcher.kt)** | **Native Event Router & Listener Contract.** Implements observer pattern over raw JNI signals from libmpv and broadcasts them to Kotlin listeners. Defines `MpvEventListener` interface. | `eventProperty()`, `event()`, `addListener()`, `removeListener()`, `onPropertyChange()` | `MpvController`, `MPVLib` (JNI Callback) | `MpvEventListener` implementations (`PlayerViewModel`) |
@@ -316,7 +318,7 @@ The following matrix documents every file in the project, defining who controls 
 ### B. Player State & Business Logic (`player/viewmodel/`, `player/state/`, `player/model/`)
 | File & Link | Role & Responsibility | Primary Functions / Methods | Controlled By | Commands / Dependencies |
 | :--- | :--- | :--- | :--- | :--- |
-| **[PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt)** | **Overall State Leader.** Central ViewModel governing player UI state (`PlayerState`), media commands (with precise seeking by default via `seekTo(..., precise=true)`), responsive decoding mode cycling (`cycleDecodeMode()`), equality-guarded property updates (`onPropertyChange`), seek timestamp resets (`lastSeekTime = 0L` on commit), and coordinating sub-managers. | `play()`, `pause()`, `seekTo()`, `seekCommit()`, `onSeekCommitMs()`, `cycleDecodeMode()`, `onSurfaceReady()`, `onPropertyChange()` | `PlayerActivity`, UI Controls, `PlayerCoordinator` | `MpvController`, `PlaylistManager`, `SubtitleController`, `ResumePositionManager`, `UserPreferencesRepository` |
+| **[PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt)** | **Overall State Leader.** Central ViewModel governing player UI state (`PlayerState`), media commands (with precise seeking by default via `seekTo(..., precise=true)`), responsive decoding mode cycling (`cycleDecodeMode()`), equality-guarded property updates (`onPropertyChange`), seek timestamp resets (`lastSeekTime = 0L` on commit), and coordinating sub-managers. | `play()`, `pause()`, `seekTo()`, `seekCommit()`, `onSeekCommitMs()`, `cycleDecodeMode()`, `onSurfaceReady()`, `onPropertyChange()` | `PlayerActivity`, UI Controls, `GestureHandler` | `MpvController`, `PlaylistManager`, `SubtitleController`, `ResumePositionManager`, `UserPreferencesRepository` |
 | **[PlayerViewModelFactory.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModelFactory.kt)** | **Dependency Injection Factory.** Instantiates `PlayerViewModel` with `MpvController`, preferences, and Room database DAOs. | `create()` | `PlayerActivity` | `AppDatabase`, `UserPreferencesRepository`, `MpvController` |
 | **[PlaylistManager.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlaylistManager.kt)** | **Queue Orchestrator.** Manages playlist items, current index, file loading, and next/previous track switching upon EOF. | `loadAndPlay()`, `playNext()`, `playPrevious()`, `addToPlaylist()` | `PlayerViewModel` | `MpvCommandExecutor.loadFile()`, `PlaylistState` |
 | **[SubtitleController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/SubtitleController.kt)** | **Subtitle Governor.** Handles subtitle track selection, external ASS/SRT file sideloading, and font scale/position styling properties. | `selectTrack()`, `addSubtitleFile()`, `setSubtitleSize()`, `setSubtitlePosition()` | `PlayerViewModel` | `MpvCommandExecutor`, `UserPreferencesRepository` |
@@ -328,12 +330,10 @@ The following matrix documents every file in the project, defining who controls 
 | **[DecodeMode.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/DecodeMode.kt) & [AspectRatioMode.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/AspectRatioMode.kt)** | **Playback Setting Enums.** Defines hardware decoding modes (`HW`, `HW+`, `SW`) and video aspect ratios (`FIT`, `STRETCH`, `CROP`, `16:9`, `4:3`). | Enum values | Used by `PlayerQuickActions` & `DecodeModePicker` | Routed to `MpvCommandExecutor` |
 | **[FileInfo.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/FileInfo.kt)** | **Media Metadata Model.** Immutable data class encapsulating video filename, absolute file path, duration in milliseconds, and track counts. | Data properties (`fileName`, `filePath`, `durationMs`, `videoTracks`, `audioTracks`, `subtitleTracks`) | Created by `PlayerViewModel` | Used by `MoreOptionsSheet` |
 
-### C. Touch Gestures & Coordination (`player/gesture/`, `player/coordinator/`)
+### C. Touch Gestures & Input Handling (`player/gesture/`)
 | File & Link | Role & Responsibility | Primary Functions / Methods | Controlled By | Commands / Dependencies |
 | :--- | :--- | :--- | :--- | :--- |
-| **[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt)** | **Playback & Overlay Bridge.** Implements `MpvPlayerController`, bridging `MpvGestureStateMachine` with `PlayerViewModel` and routing visual overlays through `OverlayController`. | `attachOverlay()`, `seekTo()`, `setPlaybackSpeedRamped()`, `setBrightness()`, overlay show/hide implementations | `PlayerActivity`, `GestureHandler` | `PlayerViewModel`, `OverlayController` |
-| **[OverlayController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/OverlayController.kt)** | **Overlay Routing Contract.** Interface and companion `NO_OP` implementation defining commands for showing/hiding volume, brightness, speed, seek, and pinch overlays. | `showVolumeOverlay()`, `showBrightnessOverlay()`, `showSpeedOverlay()`, `scheduleTimer()` | `PlayerCoordinator` | Implemented by `PlayerOverlay` |
-| **[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt)** | **Touch Input Leader.** Intercepts Compose pointer events, feeds them into `MpvGestureStateMachine`, and renders visual feedback indicators. | `GestureHandler(...)`, `pointerInput(stateMachine)` | `PlayerOverlay` | `MpvGestureStateMachine`, `MpvPlayerController` (`PlayerCoordinator`) |
+| **[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt)** | **Touch Input Leader & MpvPlayerController Implementation.** Intercepts Compose pointer events, classifies them via `MpvGestureStateMachine`, executes media commands against `PlayerViewModel`, and renders visual feedback indicators. | `GestureHandler(...)`, `pointerInput(stateMachine)` | `PlayerOverlay` | `MpvGestureStateMachine`, `PlayerViewModel`, `PlayerOverlay` callbacks |
 | **[MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt)** | **Core State Machine.** Classifies multi-touch sequences into mutually exclusive `GestureState` objects with zero ambiguity. | `onPointerDown()`, `onPointerMove()`, `onPointerUp()`, `transitionTo()` | `GestureHandler` | `MpvPlayerController` interface |
 | **[GestureModels.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureModels.kt)** | **Gesture Domain Contract.** Defines `MpvPlayerController` interface, `TapRegion`, `PanelShown`, and sealed classes for all mutually exclusive gesture states. | Interface methods, sealed class hierarchies | Used by `MpvGestureStateMachine` & `GestureHandler` | None (Domain model definitions) |
 | **[GestureIndicators.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureIndicators.kt)** | **Consolidated Indicator Library.** Renders all visual feedback overlays during gesture scrubbing (`VolumeIndicator`, `BrightnessIndicator`, `HorizontalSeekIndicator`, `SeekCircleIndicator`, `SpeedIndicator`, `PinchZoomIndicator`, `IndicatorPill`). | `VolumeIndicator(...)`, `BrightnessIndicator(...)`, `HorizontalSeekIndicator(...)`, `SeekCircleIndicator(...)`, `SpeedIndicator(...)`, `PinchZoomIndicator(...)`, `IndicatorPill(...)` | `GestureHandler` | Compose Foundation, Material 3 icons & animations |
@@ -378,17 +378,18 @@ The following matrix documents every file in the project, defining who controls 
 ## 5. Leader & Subsystem Deep-Dive
 
 ### A. The Brain: `PlayerViewModel` & Equality-Guarded State Updates
-[PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt) orchestrates three specialized sub-domains:
+[PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt) orchestrates four specialized sub-domains:
 1. **Playlist Management (`PlaylistManager`)**: Handles queueing multiple videos, resolving file paths, and managing end-of-file (EOF) transitions.
 2. **Subtitle & Styling (`SubtitleController`)**: Manages subtitle selection, external file sideloading (`sub-add`), and font scaling.
 3. **Resume Progress (`ResumePositionManager`)**: Automatically debounces time updates and commits the current playback timestamp to `ResumePositionDao`.
+4. **Event Processing (`EventProcessor`)**: Decouples native `MpvEventListener` event handling (`onFileLoaded`, `onPlaybackStarted`, `onPlaybackStopped`, `onPropertyChange`), performs equality checks, throttles high-frequency `time-pos` updates (~5 Hz outside seek drag), and suppresses echo-backs during slider seeking.
 
 *Equality-Guarded Property Changes*: In `onPropertyChange(property, value)`, the ViewModel explicitly guards against redundant `_playerState.update` calls by comparing incoming native property values against the current `_playerState.value` across all high-frequency properties (`"pause"`, `"aid"`, `"sid"`, `"speed"`, and `"volume"`). This guarantees that Compose UI components only recompose when a value has genuinely changed.
 
-### B. The Gesture & Overlay Bridge: `PlayerCoordinator` & `OverlayController`
-To decouple gesture processing from direct ViewModel or Compose UI dependencies, [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt) implements the [MpvPlayerController](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureModels.kt) interface required by [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt):
+### B. The Gesture & Overlay Bridge: Direct `MpvPlayerController` & `PlayerOverlay` Integration
+To provide streamlined, high-performance touch feedback without intermediary router classes, [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) directly implements the [MpvPlayerController](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureModels.kt) contract required by [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt):
 * **Playback Commands**: Directly executes media operations (`seekTo`, `setPlaybackSpeedRamped`, `setVolume`, `setBrightness`) against `PlayerViewModel`.
-* **Overlay Routing**: Forwards visual indicator requests (`showVolumeOverlay`, `showBrightnessOverlay`, `showSpeedOverlay`, `showHorizontalSeekOverlay`) to [OverlayController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/OverlayController.kt), which is attached and implemented by [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt).
+* **Overlay Routing**: Directly coordinates with visual overlay callbacks provided by [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) for volume, brightness, speed, seek ripples, and auto-hide controls timers.
 
 ### C. The Engine Gateway: `MpvController`, `MpvOptionsConfigurator`, & Generation-Aware Surface Safety
 [MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt) encapsulates the C-JNI boundary into modular helpers:
@@ -403,13 +404,13 @@ To decouple gesture processing from direct ViewModel or Compose UI dependencies,
 [MoreOptionsSheet.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/dialogs/MoreOptionsSheet.kt) provides a unified side sheet triggered from the 3-dot overflow menu in [PlayerQuickActions.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/controls/PlayerQuickActions.kt):
 * **Speed Selection**: Interactive speed selection chips.
 * **FileInfo Inspection**: Displays [FileInfo.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/model/FileInfo.kt) metadata including video/audio/subtitle track counts.
-* **App Settings Integration**: Triggers `onOpenSettings()`, wired through [PlayerActivity.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/PlayerActivity.kt) -> [PlayerScreen.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerScreen.kt) -> [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) to open [SettingsScreen.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsScreen.kt).
+* **App Settings Integration**: Triggers `onOpenSettings()`, wired through [PlayerActivity.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/PlayerActivity.kt) -> [PlayerScreen.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerScreen.kt) -> [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) to open [SettingsScreen.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsScreen.kt).
 
 ---
 
 ## 6. Summary of Architecture Harmony
 
 The codebase achieves state-of-the-art performance, stability, and maintainability through a strict chain of responsibility:
-* **UI & Gesture Components** never call mpv JNI functions directly; they emit user intents to `PlayerViewModel` or commands via `PlayerCoordinator`.
-* **ViewModel & Business Logic** never manage Android Views or touch math; they update equality-guarded `StateFlow<PlayerState>` and coordinate domain managers.
+* **UI & Gesture Components** never call mpv JNI functions directly; they emit user intents to `PlayerViewModel` or interact via `GestureHandler` and `PlayerOverlay` callbacks.
+* **ViewModel & Business Logic** never manage Android Views or touch math; they update equality-guarded `StateFlow<PlayerState>` and coordinate domain managers (`EventProcessor`, `PlaylistManager`, `SubtitleController`, `ResumePositionManager`).
 * **Engine Components** never know about UI layouts or databases; they execute thread-safe, generation-aware C/JNI commands and emit structured events.

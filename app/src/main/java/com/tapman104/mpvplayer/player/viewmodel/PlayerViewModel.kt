@@ -17,15 +17,13 @@ import kotlinx.coroutines.Dispatchers
 import java.io.File
 import kotlin.math.roundToInt
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
+import com.tapman104.mpvplayer.core.engine.EventProcessor
 import com.tapman104.mpvplayer.core.engine.MpvController
-import com.tapman104.mpvplayer.core.engine.MpvEventListener
 import com.tapman104.mpvplayer.core.engine.InitResult
-import com.tapman104.mpvplayer.core.engine.TrackListParser
 import com.tapman104.mpvplayer.util.UriResolver
 import com.tapman104.mpvplayer.player.model.*
 import com.tapman104.mpvplayer.player.state.*
 import `is`.xyz.mpv.MPVLib
-import `is`.xyz.mpv.MPVNode
 import `is`.xyz.mpv.Utils
 
 class PlayerViewModel(
@@ -33,15 +31,11 @@ class PlayerViewModel(
     val controller: MpvController,
     private val resumePositionManager: ResumePositionManager,
     val preferencesRepository: UserPreferencesRepository,
-) : AndroidViewModel(application), MpvEventListener {
+) : AndroidViewModel(application) {
 
     private val TAG = "PlayerViewModel"
 
-    private var lastTimePosUpdate = 0L
-    private var lastCacheUpdate = 0L
     private var lastSeekTime = 0L
-    /** True while the user is actively dragging the seek slider — suppresses mpv position echo-backs. */
-    @Volatile private var isSliderSeeking = false
 
     private val _positionState = MutableStateFlow(PositionState())
     val positionState: StateFlow<PositionState> = _positionState.asStateFlow()
@@ -59,6 +53,20 @@ class PlayerViewModel(
         executor = controller.executor,
         preferencesRepository = preferencesRepository,
         scope = viewModelScope
+    )
+
+    val eventProcessor = EventProcessor(
+        scope = viewModelScope,
+        playerState = _playerState,
+        positionState = _positionState,
+        onPlaybackEnded = {
+            if (controller.surface.hasSurface()) {
+                playlistManager.onPlaybackEnded()
+            }
+        },
+        onTracksLoaded = { subtitleTracks ->
+            autoSelectSubtitle(subtitleTracks)
+        }
     )
 
     val playlistState: StateFlow<PlaylistState> = playlistManager.playlistState
@@ -85,7 +93,7 @@ class PlayerViewModel(
 
     init {
         resumePositionManager.attach(viewModelScope) { _positionState.value.durationMs }
-        controller.dispatcher.addListener(this)
+        controller.dispatcher.addListener(eventProcessor)
         controller.init()
         controller.surface.setSurfaceReadyCallback {
             onSurfaceReady()
@@ -150,15 +158,15 @@ class PlayerViewModel(
     fun togglePlay() = controller.executor.togglePlay()
     
     fun seekGestureDrag(positionMs: Long) {
-        isSliderSeeking = true
+        eventProcessor.isSliderSeeking = true
         lastSeekTime = System.currentTimeMillis()
         controller.executor.seekGesture(positionMs / 1000.0)
     }
 
     fun seekCommit(positionMs: Long) {
-        isSliderSeeking = false
+        eventProcessor.isSliderSeeking = false
         lastSeekTime = 0L
-        lastTimePosUpdate = 0L
+        eventProcessor.lastTimePosUpdate = 0L
         controller.executor.seekCommit(positionMs / 1000.0)
     }
     
@@ -383,116 +391,11 @@ class PlayerViewModel(
 
 
     // ---------------------------------------------------------------------------
-    // MpvEventListener
-    // ---------------------------------------------------------------------------
-
-    override fun onFileLoaded() {
-        _playerState.update { it.copy(fileLoaded = true, isLoading = false, error = null, hasError = false) }
-    }
-
-    override fun onPlaybackStarted() {
-        _playerState.update { it.copy(isPaused = false, isLoading = false) }
-    }
-
-    override fun onPlaybackStopped(endReason: Int) {
-        _playerState.update { it.copy(isPaused = true) }
-        if (endReason == 0 && controller.surface.hasSurface()) {
-            playlistManager.onPlaybackEnded()
-        }
-    }
-
-    override fun onPropertyChange(name: String, value: Any?) {
-        when (name) {
-            "pause" -> {
-                val paused = value as? Boolean ?: return
-                if (_playerState.value.isPaused == paused) return
-                _playerState.update { it.copy(isPaused = paused) }
-            }
-            "time-pos" -> {
-                val seconds = value as? Double ?: return
-                val now = System.currentTimeMillis()
-
-                // Suppress echo-backs while the slider is being actively dragged —
-                // the UI already drives position from dragPositionMs in that window.
-                if (isSliderSeeking) return
-
-                // Outside drag: throttle to ~5 Hz so Compose isn't recomposed on every
-                // mpv frame. After a seek commit, the next update is always accepted
-                // (lastTimePosUpdate was reset to 0 on commit) to snap to the new position.
-                if (now - lastTimePosUpdate >= 200) {
-                    if (_positionState.value.positionSec != seconds) {
-                        _positionState.update { it.copy(positionSec = seconds) }
-                    }
-                    lastTimePosUpdate = now
-                }
-            }
-            "duration" -> {
-                val seconds = value as? Double ?: return
-                if (_positionState.value.durationSec != seconds) {
-                    _positionState.update { it.copy(durationSec = seconds) }
-                }
-            }
-            "demuxer-cache-time" -> {
-                val seconds = value as? Double ?: return
-                val now = System.currentTimeMillis()
-                if (now - lastCacheUpdate >= 500) {  // 2Hz is enough for cache indicator
-                    if (_positionState.value.cachedSec != seconds) {
-                        _positionState.update { it.copy(cachedSec = seconds) }
-                    }
-                    lastCacheUpdate = now
-                }
-            }
-            "track-list" -> {
-                val node = value as? MPVNode ?: return
-                val audioTracks = TrackListParser.parseAudioTracks(node)
-                val subtitleTracks = TrackListParser.parseSubtitleTracks(node)
-                _playerState.update { it.copy(audioTracks = audioTracks, subtitleTracks = subtitleTracks) }
-                autoSelectSubtitle(subtitleTracks)
-            }
-            "aid" -> {
-                val id = (value as? Long)?.toInt() ?: -1
-                if (_playerState.value.currentAudioTrackId == id) return
-                _playerState.update { it.copy(currentAudioTrackId = id) }
-            }
-            "sid" -> {
-                val id = (value as? Long)?.toInt() ?: -1
-                if (_playerState.value.currentSubtitleTrackId == id) return
-                _playerState.update { it.copy(currentSubtitleTrackId = id) }
-            }
-            "speed" -> {
-                val speed = value as? Double ?: return
-                if (_playerState.value.playbackSpeed == speed) return
-                _playerState.update { it.copy(playbackSpeed = speed) }
-            }
-            "hwdec" -> {
-                val hwdec = value as? String ?: return
-                val mode = when (hwdec) {
-                    DecodeMode.HWPlus.mpvValue -> DecodeMode.HWPlus
-                    DecodeMode.SW.mpvValue, "no", "" -> DecodeMode.SW
-                    else -> DecodeMode.HW
-                }
-                if (_playerState.value.decodeMode != mode) {
-                    _playerState.update { it.copy(decodeMode = mode) }
-                }
-            }
-            "volume" -> {
-                val volume = value as? Double ?: return
-                if (_playerState.value.volume == volume.toInt()) return
-                _playerState.update { it.copy(volume = volume.toInt()) }
-            }
-        }
-    }
-
-    override fun onError(message: String) {
-        _playerState.update { it.copy(error = message, hasError = true, isLoading = false) }
-    }
-
-    // ---------------------------------------------------------------------------
     // Lifecycle
     // ---------------------------------------------------------------------------
 
     override fun onCleared() {
-        controller.dispatcher.removeListener(this)
+        controller.dispatcher.removeListener(eventProcessor)
         controller.destroy()
         super.onCleared()
     }

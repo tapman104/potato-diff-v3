@@ -17,6 +17,7 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 │   │   │   ├── ResumePositionDao.kt        # Data Access Object for watch progress CRUD queries
 │   │   │   └── ResumePositionEntity.kt     # SQLite entity storing file path, position & duration
 │   │   ├── engine/                         # Native C/JNI libmpv engine abstraction
+│   │   │   ├── EventProcessor.kt           # Native event processor with throttled time-pos (~5 Hz) & seek suppression
 │   │   │   ├── MpvCommandExecutor.kt       # Thread-safe command queue & coalesced seek debouncer
 │   │   │   ├── MpvConstants.kt             # Static libmpv property & command string literals
 │   │   │   ├── MpvController.kt            # High-level engine lifecycle & playback facade
@@ -34,9 +35,6 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 │   │   │   ├── PlayerControlsStyles.kt     # Shared glassmorphic design tokens & icon buttons
 │   │   │   ├── PlayerQuickActions.kt       # Quick toggle bar (aspect ratio, hwdec, more options)
 │   │   │   └── PlayerTopBar.kt             # Header bar with file title & track pickers
-│   │   ├── coordinator/                    # Bridge between gestures, overlays & viewmodel
-│   │   │   ├── OverlayController.kt        # Interface contract for visual gesture overlays
-│   │   │   └── PlayerCoordinator.kt        # MpvPlayerController implementation & overlay router
 │   │   ├── dialog/                         # Styling & hardware decode dialogs
 │   │   │   ├── DecodeModePicker.kt         # HW / HW+ / SW decode selector modal
 │   │   │   └── SubtitleAppearanceDialog.kt # Subtitle scale & position slider modal
@@ -82,6 +80,8 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 │       ├── TimeFormatter.kt                # HH:MM:SS timestamp formatter
 │       └── UriResolver.kt                  # Content URI to file descriptor/path resolver
 ├── app/src/test/java/com/tapman104/mpvplayer/
+│   ├── core/engine/
+│   │   └── EventProcessorTest.kt           # EventProcessor state sync, time-pos throttling & seek suppression test suite
 │   ├── player/gesture/
 │   │   ├── GestureStateCoverageTest.kt     # 100% state transition verification
 │   │   └── MpvGestureStateMachineTest.kt   # Touch classifier & multi-touch gesture test suite
@@ -104,6 +104,7 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 | **Core Database** | [AppDatabase.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/database/AppDatabase.kt) | Room SQLite database initialization & DAO provider | `resumePositionDao()` | `ResumePositionDao` |
 | **Core Database** | [ResumePositionDao.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/database/ResumePositionDao.kt) | Room DAO for playback progress queries | `savePosition()`, `getPosition()`, `deletePosition()` | `ResumePositionEntity` |
 | **Core Database** | [ResumePositionEntity.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/database/ResumePositionEntity.kt) | SQLite entity storing file path, timestamp & duration | `filePath`, `positionMs`, `durationMs` | Room Database |
+| **Core Engine** | [EventProcessor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/EventProcessor.kt) | Native event processor managing playback states, throttled time-pos updates (~5 Hz), and slider seek suppression | `onFileLoaded()`, `onPlaybackStarted()`, `onPlaybackStopped()`, `onPropertyChange()` | `MpvEventDispatcher`, `PlayerViewModel` |
 | **Core Engine** | [MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt) | Native libmpv engine facade & lifecycle governor | `init()`, `destroy()`, `copyFontAsset()` | `MpvCommandExecutor`, `MpvEventDispatcher`, `MpvOptionsConfigurator` |
 | **Core Engine** | [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt) | Single-thread safe command queue & coalesced seek debouncer | `execute()`, `seekGesture()`, `seekCommit()`, `nextSurfaceGeneration()` | `MPVLib` (JNI), `MpvSurface` |
 | **Core Engine** | [MpvEventDispatcher.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvEventDispatcher.kt) | JNI callback router broadcasting native property events | `eventProperty()`, `addListener()`, `removeListener()` | `MpvEventListener` |
@@ -117,9 +118,7 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 | **Player ViewModel** | [PlaylistManager.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlaylistManager.kt) | Playlist queue & EOF auto-advance manager | `loadAndPlay()`, `playNext()`, `onEndOfFile()` | `PlayerViewModel`, `PlaylistState` |
 | **Player ViewModel** | [SubtitleController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/SubtitleController.kt) | Subtitle track selection, sideloading & styling controller | `selectTrack()`, `addSubtitleFile()`, `setSubtitleAppearance()` | `PlayerViewModel`, `UserPreferencesRepository` |
 | **Player ViewModel** | [ResumePositionManager.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/ResumePositionManager.kt) | Debounced playback progress persistence manager | `savePosition()`, `getResumePosition()`, `clearPosition()` | `ResumePositionDao` |
-| **Player Coordinator** | [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt) | Bridge implementing `MpvPlayerController` & overlay router | `attachOverlay()`, `seekTo()`, `setBrightness()`, overlay routing | `PlayerViewModel`, `OverlayController` |
-| **Player Coordinator** | [OverlayController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/OverlayController.kt) | Interface contract for showing/hiding gesture feedback overlays | `showVolumeOverlay()`, `showBrightnessOverlay()`, `showSpeedOverlay()` | `PlayerOverlay`, `PlayerCoordinator` |
-| **Player Gesture** | [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) | Compose touch interceptor & indicator overlay host | `GestureHandler(...)`, `pointerInput(stateMachine)` | `MpvGestureStateMachine`, `PlayerCoordinator` |
+| **Player Gesture** | [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) | Compose touch interceptor implementing `MpvPlayerController` & visual indicator overlay host | `GestureHandler(...)`, `pointerInput(stateMachine)` | `MpvGestureStateMachine`, `PlayerOverlay` |
 | **Player Gesture** | [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt) | Mutually exclusive touch sequence state machine | `onPointerDown()`, `onPointerMove()`, `onPointerUp()`, `transitionTo()` | `GestureModels`, `MpvPlayerController` |
 | **Player Gesture** | [GestureModels.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureModels.kt) | Touch state sealed classes & `MpvPlayerController` contract | `MpvPlayerController`, `GestureState` sealed classes | `MpvGestureStateMachine` |
 | **Player Gesture** | [GestureIndicators.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureIndicators.kt) | Visual feedback indicators (volume, brightness, seek, zoom) | `VolumeIndicator`, `BrightnessIndicator`, `SpeedIndicator`, `IndicatorPill` | Compose UI, Material 3 |
@@ -141,6 +140,7 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 | **Player State** | [PlayerState.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/state/PlayerState.kt) | Central immutable playback UI state model | `isPaused`, `speed`, `volume`, `durationMs` | `PlayerViewModel`, UI screens |
 | **Settings** | [SettingsScreen.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsScreen.kt) & [SettingsViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsViewModel.kt) | Global application settings UI & state manager | `SettingsScreen(...)`, `update*()` | `UserPreferencesRepository` |
 | **Utilities** | [UriResolver.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/util/UriResolver.kt) & [TimeFormatter.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/util/TimeFormatter.kt) | URI file resolution & timestamp formatting | `resolveUri()`, `formatTime()` | `PlayerActivity`, `PlayerBottomControls` |
+| **Tests** | [EventProcessorTest.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/test/java/com/tapman104/mpvplayer/core/engine/EventProcessorTest.kt) | Unit test suite verifying EventProcessor state updates, pause synchronization, time-pos throttling (~5 Hz), and seek suppression | `@Test` methods for event processing | `EventProcessor` |
 | **Tests** | [MpvGestureStateMachineTest.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/test/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachineTest.kt) | Touch classifier & multi-touch gesture test suite | `@Test` methods for gestures | `MpvGestureStateMachine` |
 | **Tests** | [GestureStateCoverageTest.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/test/java/com/tapman104/mpvplayer/player/gesture/GestureStateCoverageTest.kt) | 100% mutually exclusive state transition coverage test | `@Test` state transition verify | `GestureState` |
 | **Tests** | [DecodeModeTest.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/test/java/com/tapman104/mpvplayer/player/model/DecodeModeTest.kt) | Hardware decode enum & libmpv mapping verify | `@Test verifyMpvValues` | `DecodeMode` |
@@ -155,15 +155,15 @@ c:\Users\tapman\Desktop\potatompv\mpvplayer\
 ```mermaid
 graph TD
     UI[Layer 2: Compose Presentation Layer<br>PlayerScreen / PlayerOverlay / MoreOptionsSheet]
-    COORD[Layer 3: Coordination & Input Layer<br>PlayerCoordinator / GestureHandler / MpvGestureStateMachine]
+    GESTURE[Layer 3: Touch & Gesture Input Layer<br>GestureHandler / MpvGestureStateMachine / GestureIndicators]
     VM[Layer 3: State & Business Logic Layer<br>PlayerViewModel / PlaylistManager / SubtitleController]
-    ENGINE[Layer 4: Native Engine Facade<br>MpvController / MpvCommandExecutor / MpvSurface]
+    ENGINE[Layer 4: Native Engine Facade<br>MpvController / MpvCommandExecutor / EventProcessor]
     DB[Layer 5: Persistence & Storage<br>Room AppDatabase / DataStore Preferences]
 
     UI -->|Events & Callbacks| VM
-    UI -->|Touch Pointer Events| COORD
-    COORD -->|MpvPlayerController Commands| VM
-    COORD -->|OverlayController Callbacks| UI
+    UI -->|Touch Pointer Events| GESTURE
+    GESTURE -->|Direct Callbacks| UI
+    GESTURE -->|Direct Callbacks| VM
     VM -->|Thread-Safe Commands| ENGINE
     VM -->|Read / Write State| DB
     ENGINE -->|Property Change Events| VM
@@ -178,14 +178,15 @@ sequenceDiagram
     participant EX as MpvCommandExecutor
     participant LIB as MPVLib (Native JNI)
     participant DISP as MpvEventDispatcher
+    participant EP as EventProcessor
 
     UI->>VM: togglePlayPause()
     VM->>EX: togglePlay()
     EX->>LIB: setPropertyBoolean("pause", !paused) [on mpv-engine-thread]
     LIB-->>DISP: Native callback: PROP_PAUSE changed
-    DISP->>VM: onPropertyChange("pause", newValue)
-    Note over VM: Equality Guard Check:<br>if (_playerState.value.isPaused == newValue) skip<br>else _playerState.update { copy(isPaused = newValue) }
-    VM-->>UI: StateFlow<PlayerState> emitted -> UI Recomposes
+    DISP->>EP: onPropertyChange("pause", newValue)
+    Note over EP: Equality Guard Check:<br>if (_playerState.value.isPaused == newValue) skip<br>else _playerState.update { copy(isPaused = newValue) }
+    EP-->>UI: StateFlow<PlayerState> emitted -> UI Recomposes
 ```
 
 ---
@@ -207,11 +208,11 @@ User taps video viewport once
         │  finger up   → no move, no second tap within TAP_TIMEOUT_MS
         │                → state = Idle
         ▼
-[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt) (triggerSingleTapAction callback)
+[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) (MpvPlayerController.triggerSingleTapAction)
         │
         ▼
-[PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) (controlsVisible toggle)
-        │  if hidden  → show controls + restart auto-hide timer (5s)
+[PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) (onToggleControls callback -> controlsVisible toggle)
+        │  if hidden  → show controls + restart auto-hide timer (3s)
         │  if visible → hide controls immediately
         ▼
 Compose recomposition: TopBar / BottomControls / QuickActions fade in/out
@@ -230,7 +231,10 @@ User double-taps left edge (<30% width)         User double-taps right edge (>70
         │  → state = MultiTapSeeking                    │  state = MultiTapSeeking
         │  side = LEFT                                  │  side = RIGHT
         ▼                                               ▼
-[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt) → seekBackward(10_000)         [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt) → seekForward(10_000)
+[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) → seekBackward(10_000)            [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) → seekForward(10_000)
+        │                                               │
+        ▼                                               ▼
+[PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) → onSeekBackward(10_000)          [PlayerOverlay.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/playback/PlayerOverlay.kt) → onSeekForward(10_000)
         │
         ▼
 [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt) → seekRelative(±10_000 ms)
@@ -252,8 +256,8 @@ User presses and holds finger > LONG_PRESS_TIMEOUT_MS
 [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt) state = LongPress → DynamicSpeedScrub
         │
         ▼
-[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt).setPlaybackSpeedRamped(targetSpeed = 2.0f)
-        │  saves preOverrideSpeed = current speed
+[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt).setPlaybackSpeedRamped(targetSpeed = 2.0f)
+        │  → onSpeedOverride(2.0f) callback
         │  → [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt).setSpeed(2.0f)
         │  → [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt).setSpeed(2.0)
         │  → MPVLib.setPropertyDouble("speed", 2.0) [mpv-engine-thread]
@@ -264,9 +268,10 @@ User presses and holds finger > LONG_PRESS_TIMEOUT_MS
 User lifts finger
         │
         ▼
-[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt).restorePlaybackSpeed()
-        │  → [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt).setSpeed(preOverrideSpeed)
-        │  → MPVLib.setPropertyDouble("speed", preOverrideSpeed)
+[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt).restorePlaybackSpeed()
+        │  → onSpeedRestore() callback
+        │  → [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt).setSpeed(1.0f)
+        │  → MPVLib.setPropertyDouble("speed", 1.0)
 ```
 
 ---
@@ -282,13 +287,12 @@ User places finger on edge, vertical delta > threshold (dx < dy)
         │  left half  (<50% width) → BRIGHTNESS channel
         ▼
         ├─[VOLUME]─────────────────────────────────────────────────────────────
-        │   [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt).setVolume(newVolume)
-        │   → [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt).setVolume()
-        │   → MPVLib.setPropertyDouble("volume", vol) [mpv-engine-thread]
+        │   [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt).setVolume(newVolume)
+        │   → audioManager.setStreamVolume(...) & onVolumeChange(pct)
         │   → [GestureIndicators.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureIndicators.kt): VolumeIndicator bar
         │
         └─[BRIGHTNESS]──────────────────────────────────────────────────────────
-            [PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt).setBrightness(clamped)
+            [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt).setBrightness(clamped)
             → onBrightnessChange.invoke(clamped)
             → [PlayerActivity.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/PlayerActivity.kt): window.attributes.screenBrightness = clamped
             → [GestureIndicators.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureIndicators.kt): BrightnessIndicator bar
@@ -305,7 +309,8 @@ User swipes horizontally across viewport (dx > dy)
 [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt) state = HorizontalSeek
         │
         ▼
-[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt).seekGesture(targetPositionMs)
+[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt).seekGestureDrag(targetPositionMs)
+        │  → onSeekGestureDrag(targetPositionMs) callback
         │  → [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt).seekGesture(targetPositionMs)
         │  → [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt).seekGesture(seconds) [Coalesced keyframe seek]
         ▼
@@ -314,7 +319,8 @@ MPVLib.command("seek", targetSeconds, "absolute+keyframes") [mpv-engine-thread]
 User lifts finger
         │
         ▼
-[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt).seekCommit(finalPositionMs)
+[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt).seekCommit(finalPositionMs)
+        │  → onSeekCommit(finalPositionMs) callback
         │  → [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt).seekCommit(finalSeconds)
         ▼
 MPVLib.command("seek", finalSeconds, "absolute+exact") [mpv-engine-thread]
@@ -331,8 +337,8 @@ Two fingers placed on screen, spread apart or pan
 [MpvGestureStateMachine.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/MpvGestureStateMachine.kt) pointerCount = 2, state = PinchZoomPan
         │
         ▼
-[PlayerCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/coordinator/PlayerCoordinator.kt).setZoomAndPan(zoomLog2, panX, panY)
-        │
+[GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt).setZoomAndPan(zoomLog2, panX, panY)
+        │  → onZoomChange(zoomLog2) callback
         ▼
 [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt)
         │  → MPVLib.setPropertyDouble("video-zoom", zoomLog2)
