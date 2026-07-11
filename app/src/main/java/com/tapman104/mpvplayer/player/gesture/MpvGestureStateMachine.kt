@@ -427,7 +427,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
             else -> 48L
         }
         if (timeMs - state.lastSeekIssuedAtMs >= throttleMs) {
-            controller.seekGesture(targetMs)
+            controller.seekGestureDrag(targetMs)
             newLastSeekIssuedAtMs = timeMs
         }
 

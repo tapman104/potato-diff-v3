@@ -8,22 +8,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
-import com.tapman104.mpvplayer.player.coordinator.OverlayController
-import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import com.tapman104.mpvplayer.player.model.DecodeMode
 
 @Composable
 fun PlayerScreen(
-    coordinator: MpvPlayerController? = null,
-    onCoordinatorReady: ((OverlayController) -> Unit)? = null,
     playerState: PlayerState,
     positionState: PositionState,
     surfaceView: SurfaceView,
     onTogglePlay: () -> Unit,
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
+    onSeekForward: (Long) -> Unit = {},
+    onSeekBackward: (Long) -> Unit = {},
+    onSeekGestureDrag: (Long) -> Unit = {},
+    onSeekCommit: (Long) -> Unit = {},
+    onSpeedOverride: (Float) -> Unit = {},
+    onSpeedRestore: () -> Unit = {},
+    onZoomChange: (Float) -> Unit = {},
+    onVolumeChange: (Int) -> Unit = {},
     onOpenFile: () -> Unit,
     onBack: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -64,11 +68,17 @@ fun PlayerScreen(
         )
 
         PlayerOverlay(
-            coordinator = coordinator,
-            onCoordinatorReady = onCoordinatorReady,
             fileName = fileName,
             playerState = playerState,
             positionState = positionState,
+            onSeekForward = onSeekForward,
+            onSeekBackward = onSeekBackward,
+            onSeekGestureDrag = onSeekGestureDrag,
+            onSeekCommit = onSeekCommit,
+            onSpeedOverride = onSpeedOverride,
+            onSpeedRestore = onSpeedRestore,
+            onZoomChange = onZoomChange,
+            onVolumeChange = onVolumeChange,
             onOpenFile = onOpenFile,
             onBack = onBack,
             onOpenSettings = onOpenSettings,

@@ -33,10 +33,9 @@ interface MpvPlayerController {
 
     fun pause()
     fun unpause()
-    fun seekTo(positionMs: Long, precise: Boolean = false)
     fun seekForward(offsetMs: Long)
     fun seekBackward(offsetMs: Long)
-    fun seekGesture(positionMs: Long)
+    fun seekGestureDrag(positionMs: Long)
     fun seekCommit(positionMs: Long)
     fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int = 5, stepDurationMs: Long = 16L)
     fun restorePlaybackSpeed()

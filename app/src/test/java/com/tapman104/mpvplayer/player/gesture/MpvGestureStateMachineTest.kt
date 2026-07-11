@@ -65,10 +65,6 @@ class FakeMpvPlayerController : MpvPlayerController {
         unpauseCallCount++
     }
 
-    override fun seekTo(positionMs: Long, precise: Boolean) {
-        lastSeekToMs = positionMs
-    }
-
     override fun seekForward(offsetMs: Long) {
         lastSeekToMs = currentPositionMs + offsetMs
     }
@@ -77,7 +73,7 @@ class FakeMpvPlayerController : MpvPlayerController {
         lastSeekToMs = currentPositionMs - offsetMs
     }
 
-    override fun seekGesture(positionMs: Long) {
+    override fun seekGestureDrag(positionMs: Long) {
         lastSeekToMs = positionMs
     }
 

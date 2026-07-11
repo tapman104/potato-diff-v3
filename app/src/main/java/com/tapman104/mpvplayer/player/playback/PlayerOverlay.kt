@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
 import com.tapman104.mpvplayer.player.controls.PlayerQuickActions
 import com.tapman104.mpvplayer.player.controls.PlayerTopBar
-import com.tapman104.mpvplayer.player.coordinator.OverlayController
 import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
@@ -28,7 +27,6 @@ import com.tapman104.mpvplayer.player.dialogs.MoreOptionsSheet
 import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
 import com.tapman104.mpvplayer.player.gesture.BrightnessIndicator
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
-import com.tapman104.mpvplayer.player.gesture.MpvPlayerController
 import com.tapman104.mpvplayer.player.model.DecodeMode
 import com.tapman104.mpvplayer.player.model.FileInfo
 import com.tapman104.mpvplayer.player.state.PlayerState
@@ -38,8 +36,6 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun PlayerOverlay(
-    coordinator: MpvPlayerController? = null,
-    onCoordinatorReady: ((OverlayController) -> Unit)? = null,
     fileName: String,
     playerState: PlayerState,
     positionState: PositionState,
@@ -48,6 +44,14 @@ fun PlayerOverlay(
     onOpenSettings: () -> Unit = {},
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
+    onSeekForward: (Long) -> Unit = {},
+    onSeekBackward: (Long) -> Unit = {},
+    onSeekGestureDrag: (Long) -> Unit = {},
+    onSeekCommit: (Long) -> Unit = {},
+    onSpeedOverride: (Float) -> Unit = {},
+    onSpeedRestore: () -> Unit = {},
+    onZoomChange: (Float) -> Unit = {},
+    onVolumeChange: (Int) -> Unit = {},
     onTogglePlay: () -> Unit,
     onAudioTrackSelected: (Int) -> Unit,
     onAddAudioClick: () -> Unit,
@@ -82,47 +86,8 @@ fun PlayerOverlay(
     // Tracks the gesture scrub target in real-time; -1L when not scrubbing.
     // Used to update the bottom seek bar without waiting for the 200ms-throttled playerState.
     var gestureSeekPreviewMs by remember { mutableStateOf(-1L) }
-    val context = LocalContext.current
-    var volumePercentage by remember {
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        mutableIntStateOf(if (max > 0) (current.toFloat() / max * 100).toInt() else 0)
-    }
-    var brightnessOverlayPct by remember { mutableStateOf<Int?>(null) }
-
-    val overlayImpl = remember {
-        object : OverlayController {
-            override fun showVolumeOverlay(percent: Int) { volumePercentage = percent }
-            override fun hideVolumeOverlay() { /* optionally hide after delay */ }
-            override fun showBrightnessOverlay(percent: Int) { brightnessOverlayPct = percent }
-            override fun hideBrightnessOverlay() { brightnessOverlayPct = null }
-            override fun showHorizontalSeekOverlay(currentLabel: String, deltaLabel: String, targetMs: Long) {
-                gestureSeekPreviewMs = targetMs
-            }
-            override fun hideHorizontalSeekOverlay(delayMs: Long) {
-                coroutineScope.launch { delay(delayMs); gestureSeekPreviewMs = -1L }
-            }
-            override fun triggerSingleTapAction() { controlsVisible = !controlsVisible }
-            override fun showDoubleTapSeekOverlay(amountSec: Int, isForward: Boolean, label: String) {}
-            override fun hideDoubleTapSeekOverlay() {}
-            override fun showSpeedOverlay(speed: Float, sliderIndex: Int?) {}
-            override fun hideSpeedOverlay() {}
-            override fun showPinchZoomOverlay(zoomPercent: Int) {}
-            override fun hidePinchZoomOverlay() {}
-            override fun showTapFeedback(x: Float, y: Float) {}
-            override fun scheduleTimer(delayMs: Long, action: () -> Unit): Any {
-                return coroutineScope.launch { delay(delayMs); action() }
-            }
-            override fun cancelTimer(timerId: Any?) {
-                (timerId as? kotlinx.coroutines.Job)?.cancel()
-            }
-        }
-    }
-
-    LaunchedEffect(overlayImpl) {
-        onCoordinatorReady?.invoke(overlayImpl)
-    }
+    val volumePercentageState = remember { mutableIntStateOf(playerState.volume) }
+    var volumePercentage by volumePercentageState
 
     // When the decode dialog is requested, immediately hide the player controls
     // so the dialog appears on a clean, uncluttered background.
@@ -142,45 +107,25 @@ fun PlayerOverlay(
         }
     }
 
-    val currentPositionMs = remember(coordinator) { { coordinator?.currentPositionMs ?: 0L } }
-    val durationMs = remember(coordinator) { { coordinator?.durationMs ?: 0L } }
-    val currentSpeed = remember(coordinator) { { coordinator?.playbackSpeed ?: 1.0f } }
+    val currentPositionMs = rememberUpdatedState(positionState.currentPositionMs)
+    val durationMs = rememberUpdatedState(positionState.durationMs)
+    val currentSpeed = rememberUpdatedState(playerState.speed)
     val onSeekPreviewMs = remember { { ms: Long -> gestureSeekPreviewMs = ms } }
-    val onSeek = remember(coordinator) { { pos: Long, precise: Boolean -> coordinator?.seekTo(pos, precise) ?: Unit } }
-    val onSeekGesture = remember(coordinator) { { pos: Long -> coordinator?.seekGesture(pos) ?: Unit } }
-    val onSeekCommit = remember(coordinator) {
+    val onSeekCommitAction = remember(onSeekCommit) {
         { posMs: Long ->
             gestureSeekPreviewMs = -1L
-            coordinator?.seekCommit(posMs) ?: Unit
+            onSeekCommit(posMs)
         }
     }
-    val onSeekForward = remember(coordinator) { { offsetMs: Long -> coordinator?.seekForward(offsetMs) ?: Unit } }
-    val onSeekBackward = remember(coordinator) { { offsetMs: Long -> coordinator?.seekBackward(offsetMs) ?: Unit } }
     val onToggleControls = remember { { controlsVisible = !controlsVisible } }
-    val onSpeedOverride = remember(coordinator) { { speed: Float -> coordinator?.setPlaybackSpeedRamped(speed) ?: Unit } }
-    val onSpeedRestore = remember(coordinator) { { coordinator?.restorePlaybackSpeed() ?: Unit } }
-    val onZoomChange = remember(coordinator) {
-        { zoom: Float ->
-            coordinator?.setZoomAndPan(zoom, coordinator.currentPanX, coordinator.currentPanY) ?: Unit
-        }
-    }
-    val onVolumeChange = remember(coordinator) {
+    val onVolumeChangeAction = remember(onVolumeChange) {
         { vol: Int ->
             volumePercentage = vol
-            coordinator?.setVolume(vol.toFloat()) ?: Unit
-        }
-    }
-    val onBrightnessChangeAction = remember(coordinator, onBrightnessChange) {
-        { brightness: Float ->
-            if (coordinator != null) {
-                coordinator.setBrightness(brightness)
-            } else {
-                onBrightnessChange(brightness)
-            }
+            onVolumeChange(vol)
         }
     }
 
-    val onOpenSettingsAction = remember(coordinator, onOpenSettings, onPause) {
+    val onOpenSettingsAction = remember(onOpenSettings, onPause) {
         {
             onPause()
             onOpenSettings()
@@ -200,25 +145,24 @@ fun PlayerOverlay(
     Box(modifier = modifier.fillMaxSize()) {
 
         GestureHandler(
-            currentPositionMs = currentPositionMs,
-            durationMs = durationMs,
-            isPlaying = coordinator?.isPaused?.not() ?: playerState.isPlaying,
-            currentSpeed = currentSpeed,
+            currentPositionMs = { currentPositionMs.value },
+            durationMs = { durationMs.value },
+            isPlaying = !playerState.isPaused,
+            currentSpeed = { currentSpeed.value },
             onSeekPreviewMs = onSeekPreviewMs,
-            onSeek = onSeek,
-            onSeekGesture = onSeekGesture,
-            onSeekCommit = onSeekCommit,
-            onSeekForward    = onSeekForward,
-            onSeekBackward   = onSeekBackward,
+            onSeekGestureDrag = onSeekGestureDrag,
+            onSeekCommit = onSeekCommitAction,
+            onSeekForward = onSeekForward,
+            onSeekBackward = onSeekBackward,
             onToggleControls = onToggleControls,
-            onSpeedOverride  = onSpeedOverride,
-            onSpeedRestore   = onSpeedRestore,
-            modifier         = Modifier.fillMaxSize(),
+            onSpeedOverride = onSpeedOverride,
+            onSpeedRestore = onSpeedRestore,
+            modifier = Modifier.fillMaxSize(),
             initialBrightness = initialBrightness,
-            onBrightnessChange = onBrightnessChangeAction,
+            onBrightnessChange = onBrightnessChange,
             volumePercentage = volumePercentage,
-            onVolumeChange = onVolumeChange,
-            currentZoom = coordinator?.currentZoomLog2 ?: 0f,
+            onVolumeChange = onVolumeChangeAction,
+            currentZoom = playerState.videoZoom,
             onZoomChange = onZoomChange,
             doubleTapSeekSeconds = doubleTapSeekSeconds,
             swipeToSeek = swipeToSeek,
@@ -227,14 +171,6 @@ fun PlayerOverlay(
             longPress2x = longPress2x,
             gestureSensitivity = gestureSensitivity
         )
-
-        if (coordinator != null) {
-            brightnessOverlayPct?.let { pct ->
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    BrightnessIndicator(brightness = pct / 100f)
-                }
-            }
-        }
 
         // ── TOP BAR ──────────────────────────────────────────────────────────
         AnimatedVisibility(
@@ -281,8 +217,8 @@ fun PlayerOverlay(
                 bufferPositionMs = positionState.demuxerCacheTimeMs,
                 gestureSeekPreviewMs = gestureSeekPreviewMs,
                 onTogglePlay = onTogglePlay,
-                onSeek = onSeekCommit,
-                onSeekGesture = onSeekGesture,
+                onSeek = onSeekCommitAction,
+                onSeekGesture = onSeekGestureDrag,
                 onSeekPreviewMs = onSeekPreviewMs
             )
         }
@@ -397,7 +333,7 @@ fun PlayerOverlay(
                 playbackSpeed = playerState.playbackSpeed.toFloat(),
                 fileInfo = fileInfo,
                 onSpeedChange = { speed ->
-                    coordinator?.setPlaybackSpeedRamped(speed)
+                    onSpeedOverride(speed)
                 },
                 onOpenSettings = onOpenSettingsAction,
                 onDismiss = { showMoreOptionsSheet = false }

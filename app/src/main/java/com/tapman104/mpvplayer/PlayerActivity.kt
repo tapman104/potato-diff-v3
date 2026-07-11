@@ -27,7 +27,6 @@ import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.core.engine.MpvController
-import com.tapman104.mpvplayer.player.coordinator.PlayerCoordinator
 import com.tapman104.mpvplayer.settings.SettingsViewModel
 import com.tapman104.mpvplayer.settings.SettingsViewModelFactory
 
@@ -38,8 +37,6 @@ class PlayerActivity : ComponentActivity() {
     private val viewModel: PlayerViewModel by viewModels {
         PlayerViewModelFactory.create(application, mpvController)
     }
-
-    private lateinit var coordinator: PlayerCoordinator
 
     private lateinit var surfaceView: SurfaceView
 
@@ -110,7 +107,6 @@ class PlayerActivity : ComponentActivity() {
             layoutParams.screenBrightness = newBrightness.coerceIn(0f, 1f)
             window.attributes = layoutParams
         }
-        coordinator = PlayerCoordinator(viewModel, onBrightnessChange = updateWindowBrightness)
 
         setContent {
             MpvPlayerTheme {
@@ -187,16 +183,12 @@ class PlayerActivity : ComponentActivity() {
 
                 LaunchedEffect(playerState.isLoading, pendingResumeMs) {
                     if (!playerState.isLoading && pendingResumeMs > 0L) {
-                        viewModel.seekTo(pendingResumeMs, true)
+                        viewModel.seekCommit(pendingResumeMs)
                         pendingResumeMs = 0L
                     }
                 }
 
                 PlayerScreen(
-                    coordinator = coordinator,
-                    onCoordinatorReady = { overlayImpl ->
-                        coordinator.attachOverlay(overlayImpl)
-                    },
                     fileName = playlistState.currentUri
                         ?.let { UriResolver.getDisplayName(applicationContext, Uri.parse(it)) }
                         ?: "Unknown",
@@ -206,6 +198,14 @@ class PlayerActivity : ComponentActivity() {
                     onTogglePlay = { viewModel.togglePlay() },
                     initialBrightness = initialBrightness,
                     onBrightnessChange = updateWindowBrightness,
+                    onSeekForward = { viewModel.seekRelative(it) },
+                    onSeekBackward = { viewModel.seekRelative(-it) },
+                    onSeekGestureDrag = { viewModel.seekGestureDrag(it) },
+                    onSeekCommit = { viewModel.seekCommit(it) },
+                    onSpeedOverride = { viewModel.setPlaybackSpeedRamped(it) },
+                    onSpeedRestore = { viewModel.restorePlaybackSpeed() },
+                    onZoomChange = { viewModel.setVideoZoom(it) },
+                    onVolumeChange = { viewModel.setVolume(it) },
                     onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
                     onBack = { finish() },
                     onOpenSettings = {

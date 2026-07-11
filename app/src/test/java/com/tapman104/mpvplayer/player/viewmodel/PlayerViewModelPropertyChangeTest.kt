@@ -2,11 +2,14 @@ package com.tapman104.mpvplayer.player.viewmodel
 
 import com.tapman104.mpvplayer.player.model.DecodeMode
 import com.tapman104.mpvplayer.player.state.PlayerState
+import com.tapman104.mpvplayer.player.state.PositionState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PropertyChangeMapper {
     var state = PlayerState()
+        private set
+    var positionState = PositionState()
         private set
 
     fun onPropertyChange(name: String, value: Any?) {
@@ -17,11 +20,11 @@ class PropertyChangeMapper {
             }
             "time-pos" -> {
                 val seconds = value as? Double ?: return
-                state = state.copy(positionSec = seconds)
+                positionState = positionState.copy(positionSec = seconds)
             }
             "duration" -> {
                 val seconds = value as? Double ?: return
-                state = state.copy(durationSec = seconds)
+                positionState = positionState.copy(durationSec = seconds)
             }
             "speed" -> {
                 val speed = value as? Double ?: return
@@ -66,14 +69,14 @@ class PlayerViewModelPropertyChangeTest {
     fun prop_duration_maps_to_duration_ms() {
         val mapper = PropertyChangeMapper()
         mapper.onPropertyChange("duration", 90.0)
-        assertEquals(90000L, mapper.state.durationMs)
+        assertEquals(90000L, mapper.positionState.durationMs)
     }
 
     @Test
     fun prop_time_pos_maps_to_current_position_ms() {
         val mapper = PropertyChangeMapper()
         mapper.onPropertyChange("time-pos", 30.5)
-        assertEquals(30500L, mapper.state.currentPositionMs)
+        assertEquals(30500L, mapper.positionState.currentPositionMs)
     }
 
     @Test

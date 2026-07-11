@@ -38,8 +38,7 @@ fun GestureHandler(
     durationMs: () -> Long,
     isPlaying: Boolean,
     currentSpeed: () -> Float = { 1.0f },
-    onSeek: (Long, Boolean) -> Unit = { _, _ -> },
-    onSeekGesture: (Long) -> Unit = {},
+    onSeekGestureDrag: (Long) -> Unit = {},
     onSeekCommit: (Long) -> Unit = {},
     onSeekForward: (Long) -> Unit = {},
     onSeekBackward: (Long) -> Unit = {},
@@ -103,8 +102,7 @@ fun GestureHandler(
     val currentSpeedRef = rememberUpdatedState(currentSpeed)
     val screenWidthPxRef = rememberUpdatedState(screenWidthPx)
     val screenHeightPxRef = rememberUpdatedState(screenHeightPx)
-    val onSeekRef = rememberUpdatedState(onSeek)
-    val onSeekGestureRef = rememberUpdatedState(onSeekGesture)
+    val onSeekGestureDragRef = rememberUpdatedState(onSeekGestureDrag)
     val onSeekCommitRef = rememberUpdatedState(onSeekCommit)
     val onSeekForwardRef = rememberUpdatedState(onSeekForward)
     val onSeekBackwardRef = rememberUpdatedState(onSeekBackward)
@@ -138,10 +136,9 @@ fun GestureHandler(
             override fun pause() {}
             override fun unpause() {}
 
-            override fun seekTo(positionMs: Long, precise: Boolean) = onSeekRef.value(positionMs, precise)
             override fun seekForward(offsetMs: Long) = onSeekForwardRef.value(offsetMs)
             override fun seekBackward(offsetMs: Long) = onSeekBackwardRef.value(offsetMs)
-            override fun seekGesture(positionMs: Long) = onSeekGestureRef.value(positionMs)
+            override fun seekGestureDrag(positionMs: Long) = onSeekGestureDragRef.value(positionMs)
             override fun seekCommit(positionMs: Long) = onSeekCommitRef.value(positionMs)
 
             override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {

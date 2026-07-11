@@ -149,21 +149,17 @@ class PlayerViewModel(
     fun play() = controller.executor.play()
     fun togglePlay() = controller.executor.togglePlay()
     
-    fun seekTo(positionMs: Long, precise: Boolean = false) {
+    fun seekGestureDrag(positionMs: Long) {
+        isSliderSeeking = true
         lastSeekTime = System.currentTimeMillis()
-        if (precise) {
-            controller.executor.seekCommit(positionMs / 1000.0)
-        } else {
-            controller.executor.seekGesture(positionMs / 1000.0)
-        }
+        controller.executor.seekGesture(positionMs / 1000.0)
     }
-    
-    fun onSeekCommitMs(positionMs: Long) {
+
+    fun seekCommit(positionMs: Long) {
         isSliderSeeking = false
         lastSeekTime = 0L
-        lastTimePosUpdate = 0L   // accept next time-pos immediately to snap to committed position
-        val seconds = positionMs / 1000.0
-        controller.executor.seekCommit(seconds)
+        lastTimePosUpdate = 0L
+        controller.executor.seekCommit(positionMs / 1000.0)
     }
     
     fun seekRelative(offsetMs: Long) {
@@ -172,7 +168,30 @@ class PlayerViewModel(
     }
     
     fun setSpeed(speed: Float) = controller.executor.setSpeed(speed.toDouble())
-    fun setVolume(volume: Int) = controller.executor.setVolume(volume)
+
+    private var preOverrideSpeed: Float = 1f
+    private var isSpeedOverridden: Boolean = false
+
+    fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int = 5, stepDurationMs: Long = 16L) {
+        if (!isSpeedOverridden) {
+            preOverrideSpeed = _playerState.value.speed
+            isSpeedOverridden = true
+        }
+        setSpeed(targetSpeed)
+    }
+
+    fun restorePlaybackSpeed() {
+        if (isSpeedOverridden) {
+            setSpeed(preOverrideSpeed)
+            isSpeedOverridden = false
+        }
+    }
+
+    fun setVolume(volume: Int) {
+        val volInt = volume.coerceIn(0, 130)
+        controller.executor.setVolume(volInt)
+        _playerState.update { it.copy(volume = volInt) }
+    }
     fun setAudioTrack(id: Int) {
         if (_playerState.value.currentAudioTrackId == id) return
         controller.executor.setAudioTrack(id)
@@ -343,90 +362,6 @@ class PlayerViewModel(
     fun setSubtitleSize(size: Float) = subtitleController.setSubtitleSize(size)
     fun setSubtitlePosition(position: Float) = subtitleController.setSubtitlePosition(position)
 
-    fun setResumePlayback(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.setResumePlayback(enabled)
-        }
-    }
-
-    fun setDecodeModeStringPreference(mpvValue: String) {
-        viewModelScope.launch {
-            preferencesRepository.setDecodeMode(mpvValue)
-        }
-    }
-
-    fun setDebandFilter(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.setDebandFilter(enabled)
-        }
-    }
-
-    fun setVideoScale(scale: String) {
-        viewModelScope.launch {
-            preferencesRepository.setVideoScale(scale)
-        }
-    }
-
-    fun setVolumeBoost(boost: Int) {
-        viewModelScope.launch {
-            preferencesRepository.setVolumeBoost(boost)
-        }
-    }
-
-    fun setPitchCorrection(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.setPitchCorrection(enabled)
-        }
-    }
-
-    fun setAudioOutputDriver(driver: String) {
-        viewModelScope.launch {
-            preferencesRepository.setAudioOutputDriver(driver)
-        }
-    }
-
-    fun setDoubleTapSeekSeconds(seconds: Int) {
-        viewModelScope.launch {
-            preferencesRepository.setDoubleTapSeekSeconds(seconds)
-        }
-    }
-
-    fun setSwipeToSeek(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.setSwipeToSeek(enabled)
-        }
-    }
-
-    fun setBrightnessSwipe(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.setBrightnessSwipe(enabled)
-        }
-    }
-
-    fun setVolumeSwipe(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.setVolumeSwipe(enabled)
-        }
-    }
-
-    fun setLongPress2x(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.setLongPress2x(enabled)
-        }
-    }
-
-    fun setGestureSensitivity(sensitivity: String) {
-        viewModelScope.launch {
-            preferencesRepository.setGestureSensitivity(sensitivity)
-        }
-    }
-
-    fun setBackgroundPlay(mode: String) {
-        viewModelScope.launch {
-            preferencesRepository.setBackgroundPlay(mode)
-        }
-    }
-
     fun currentBrightness(): Float = getScreenBrightness()
     val screenWidthPx: Float get() = application.resources.displayMetrics.widthPixels.toFloat()
     val screenHeightPx: Float get() = application.resources.displayMetrics.heightPixels.toFloat()
@@ -438,29 +373,6 @@ class PlayerViewModel(
         } catch (e: Exception) {
             0.5f
         }
-    }
-
-    fun pause() {
-        controller.executor.pause()
-    }
-
-    fun seekGesture(positionMs: Long) {
-        isSliderSeeking = true
-        lastSeekTime = System.currentTimeMillis()
-        controller.executor.seekGesture(positionMs / 1000.0)
-    }
-
-    fun seekCommit(positionMs: Long) {
-        isSliderSeeking = false
-        lastSeekTime = 0L
-        lastTimePosUpdate = 0L
-        controller.executor.seekCommit(positionMs / 1000.0)
-    }
-
-    fun setVolume(volume: Float) {
-        val volInt = volume.roundToInt().coerceIn(0, 130)
-        controller.executor.setVolume(volInt)
-        _playerState.update { it.copy(volume = volInt) }
     }
 
     fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
