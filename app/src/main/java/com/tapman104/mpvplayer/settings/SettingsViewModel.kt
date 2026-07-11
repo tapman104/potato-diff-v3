@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -13,59 +14,62 @@ class SettingsViewModel(
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
+    private fun <T> Flow<T>.asState(default: T) =
+        stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), default)
+
     val subtitleLanguage = userPreferencesRepository.subtitleLanguage
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_SUBTITLE_LANGUAGE)
+        .asState(UserPreferencesRepository.DEFAULT_SUBTITLE_LANGUAGE)
 
     val subtitleSize = userPreferencesRepository.subtitleSize
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_SUBTITLE_SIZE)
+        .asState(UserPreferencesRepository.DEFAULT_SUBTITLE_SIZE)
 
     val subtitlePosition = userPreferencesRepository.subtitlePosition
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_SUBTITLE_POSITION)
+        .asState(UserPreferencesRepository.DEFAULT_SUBTITLE_POSITION)
 
     val resumePlayback = userPreferencesRepository.resumePlayback
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_RESUME_PLAYBACK)
+        .asState(UserPreferencesRepository.DEFAULT_RESUME_PLAYBACK)
 
     val decodeMode = userPreferencesRepository.decodeMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_DECODE_MODE)
+        .asState(UserPreferencesRepository.DEFAULT_DECODE_MODE)
 
     val debandFilter = userPreferencesRepository.debandFilter
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_DEBAND_FILTER)
+        .asState(UserPreferencesRepository.DEFAULT_DEBAND_FILTER)
 
     val videoScale = userPreferencesRepository.videoScale
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_VIDEO_SCALE)
+        .asState(UserPreferencesRepository.DEFAULT_VIDEO_SCALE)
 
     val volumeBoost = userPreferencesRepository.volumeBoost
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_VOLUME_BOOST)
+        .asState(UserPreferencesRepository.DEFAULT_VOLUME_BOOST)
 
     val pitchCorrection = userPreferencesRepository.pitchCorrection
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_PITCH_CORRECTION)
+        .asState(UserPreferencesRepository.DEFAULT_PITCH_CORRECTION)
 
     val audioOutputDriver = userPreferencesRepository.audioOutputDriver
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_AUDIO_OUTPUT_DRIVER)
+        .asState(UserPreferencesRepository.DEFAULT_AUDIO_OUTPUT_DRIVER)
 
     val doubleTapSeekSeconds = userPreferencesRepository.doubleTapSeekSeconds
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_DOUBLE_TAP_SEEK_SECONDS)
+        .asState(UserPreferencesRepository.DEFAULT_DOUBLE_TAP_SEEK_SECONDS)
 
     val swipeToSeek = userPreferencesRepository.swipeToSeek
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_SWIPE_TO_SEEK)
+        .asState(UserPreferencesRepository.DEFAULT_SWIPE_TO_SEEK)
 
     val brightnessSwipe = userPreferencesRepository.brightnessSwipe
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_BRIGHTNESS_SWIPE)
+        .asState(UserPreferencesRepository.DEFAULT_BRIGHTNESS_SWIPE)
 
     val volumeSwipe = userPreferencesRepository.volumeSwipe
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_VOLUME_SWIPE)
+        .asState(UserPreferencesRepository.DEFAULT_VOLUME_SWIPE)
 
     val longPress2x = userPreferencesRepository.longPress2x
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_LONG_PRESS_2X)
+        .asState(UserPreferencesRepository.DEFAULT_LONG_PRESS_2X)
 
     val gestureSensitivity = userPreferencesRepository.gestureSensitivity
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_GESTURE_SENSITIVITY)
+        .asState(UserPreferencesRepository.DEFAULT_GESTURE_SENSITIVITY)
 
     val backgroundPlay = userPreferencesRepository.backgroundPlay
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY)
+        .asState(UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY)
 
     val quickActionsPosition = userPreferencesRepository.quickActionsPosition
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), QuickActionsPosition.BOTTOM_LEFT)
+        .asState(QuickActionsPosition.BOTTOM_LEFT)
 
     fun setSubtitleLanguage(lang: String) {
         viewModelScope.launch {
