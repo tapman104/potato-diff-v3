@@ -11,6 +11,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import com.tapman104.mpvplayer.player.model.DecodeMode
+import mpv.potato.tapman104.player.model.QuickActionsPosition
 import mpv.potato.tapman104.ui.theme.PlayerTheme
 
 @Composable
@@ -50,6 +51,7 @@ fun PlayerScreen(
     volumeSwipe: Boolean = true,
     longPress2x: Boolean = true,
     gestureSensitivity: String = "normal",
+    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.BOTTOM_LEFT,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -104,6 +106,7 @@ fun PlayerScreen(
                 volumeSwipe = volumeSwipe,
                 longPress2x = longPress2x,
                 gestureSensitivity = gestureSensitivity,
+                quickActionsPosition = quickActionsPosition,
                 modifier = Modifier.fillMaxSize()
             )
         }

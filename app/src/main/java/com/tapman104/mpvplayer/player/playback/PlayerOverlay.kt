@@ -20,7 +20,9 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import mpv.potato.tapman104.player.controls.PlayerBottomControls
+import mpv.potato.tapman104.player.controls.PlayerQuickActions
 import mpv.potato.tapman104.player.controls.PlayerTopBar
+import mpv.potato.tapman104.player.model.QuickActionsPosition
 import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
@@ -71,6 +73,7 @@ fun PlayerOverlay(
     volumeSwipe: Boolean = true,
     longPress2x: Boolean = true,
     gestureSensitivity: String = "normal",
+    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.BOTTOM_LEFT,
     modifier: Modifier = Modifier
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
@@ -180,7 +183,7 @@ fun PlayerOverlay(
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
@@ -193,10 +196,44 @@ fun PlayerOverlay(
                         )
                     )
             ) {
-                PlayerTopBar(
-                    fileName = fileName,
-                    onBack = onBack
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    PlayerTopBar(
+                        fileName = fileName,
+                        onBack = onBack,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (quickActionsPosition == QuickActionsPosition.TOP_RIGHT) {
+                        PlayerQuickActions(
+                            decodeMode = playerState.decodeMode,
+                            onSelectAudioTrack = remember { { showAudioDialog = true } },
+                            onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
+                            onDecodeModeClick = remember { { showDecodeModeDialog = true } },
+                            onMoreOptions = remember { { showMoreOptionsSheet = true } },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 16.dp)
+                        )
+                    }
+                }
+
+                if (quickActionsPosition == QuickActionsPosition.TOP_LEFT) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PlayerQuickActions(
+                            decodeMode = playerState.decodeMode,
+                            onSelectAudioTrack = remember { { showAudioDialog = true } },
+                            onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
+                            onDecodeModeClick = remember { { showDecodeModeDialog = true } },
+                            onMoreOptions = remember { { showMoreOptionsSheet = true } }
+                        )
+                    }
+                }
             }
         }
 
@@ -227,6 +264,7 @@ fun PlayerOverlay(
                     bufferPositionMs = positionState.demuxerCacheTimeMs,
                     gestureSeekPreviewMs = gestureSeekPreviewMs,
                     decodeMode = playerState.decodeMode,
+                    showQuickActions = quickActionsPosition == QuickActionsPosition.BOTTOM_LEFT,
                     onTogglePlay = onTogglePlay,
                     onSeek = onSeekCommitAction,
                     onSeekGesture = onSeekGestureDrag,

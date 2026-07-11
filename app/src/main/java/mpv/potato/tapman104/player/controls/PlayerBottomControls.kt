@@ -50,6 +50,7 @@ fun PlayerBottomControls(
     onSelectSubtitleTrack: () -> Unit,
     onDecodeModeClick: () -> Unit,
     onMoreOptions: () -> Unit,
+    showQuickActions: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     var isDragging by remember { mutableStateOf(false) }
@@ -192,14 +193,16 @@ fun PlayerBottomControls(
                 .padding(top = 8.dp, bottom = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            PlayerQuickActions(
-                decodeMode = decodeMode,
-                onSelectAudioTrack = onSelectAudioTrack,
-                onSelectSubtitleTrack = onSelectSubtitleTrack,
-                onDecodeModeClick = onDecodeModeClick,
-                onMoreOptions = onMoreOptions,
-                modifier = Modifier.align(Alignment.CenterStart)
-            )
+            if (showQuickActions) {
+                PlayerQuickActions(
+                    decodeMode = decodeMode,
+                    onSelectAudioTrack = onSelectAudioTrack,
+                    onSelectSubtitleTrack = onSelectSubtitleTrack,
+                    onDecodeModeClick = onDecodeModeClick,
+                    onMoreOptions = onMoreOptions,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                )
+            }
 
             FilledIconButton(
                 onClick = onTogglePlay,

@@ -20,11 +20,16 @@ import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import mpv.potato.tapman104.player.model.QuickActionsPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +67,7 @@ fun SettingsScreen(
     val subtitleSize by viewModel.subtitleSize.collectAsStateWithLifecycle()
     val subtitlePosition by viewModel.subtitlePosition.collectAsStateWithLifecycle()
     val resumePlayback by viewModel.resumePlayback.collectAsStateWithLifecycle()
+    val quickActionsPosition by viewModel.quickActionsPosition.collectAsStateWithLifecycle()
     val decodeMode by viewModel.decodeMode.collectAsStateWithLifecycle()
     val debandFilter by viewModel.debandFilter.collectAsStateWithLifecycle()
     val videoScale by viewModel.videoScale.collectAsStateWithLifecycle()
@@ -83,6 +89,8 @@ fun SettingsScreen(
             RootSettingsCategoryScreen(
                 resumePlayback = resumePlayback,
                 onResumePlaybackChange = { viewModel.setResumePlayback(it) },
+                quickActionsPosition = quickActionsPosition,
+                onQuickActionsPositionChange = { viewModel.setQuickActionsPosition(it) },
                 onNavigate = { currentSection = it },
                 onBack = onBack,
                 modifier = modifier
@@ -176,10 +184,13 @@ fun SettingsScreen(
 // Root Settings Page
 // ─────────────────────────────────────────────────────────────────────────────
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun RootSettingsCategoryScreen(
     resumePlayback: Boolean,
     onResumePlaybackChange: (Boolean) -> Unit,
+    quickActionsPosition: QuickActionsPosition,
+    onQuickActionsPositionChange: (QuickActionsPosition) -> Unit,
     onNavigate: (SettingsNavSection) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -235,6 +246,32 @@ private fun RootSettingsCategoryScreen(
                     checked = resumePlayback,
                     onCheckedChange = onResumePlaybackChange
                 )
+                HorizontalDivider(color = Color(0xFF262626))
+                Text(
+                    text = "Quick actions position",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+                )
+                val positionOptions = listOf(
+                    QuickActionsPosition.TOP_LEFT    to "Top left",
+                    QuickActionsPosition.TOP_RIGHT   to "Top right",
+                    QuickActionsPosition.BOTTOM_LEFT to "Bottom left",
+                )
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                ) {
+                    positionOptions.forEachIndexed { index, (position, label) ->
+                        SegmentedButton(
+                            selected = quickActionsPosition == position,
+                            onClick = { onQuickActionsPositionChange(position) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = positionOptions.size),
+                            label = { Text(label, fontSize = 12.sp) }
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(12.dp))

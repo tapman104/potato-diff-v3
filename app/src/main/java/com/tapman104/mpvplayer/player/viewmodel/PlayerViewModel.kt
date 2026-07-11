@@ -2,8 +2,13 @@ package com.tapman104.mpvplayer.player.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.tapman104.mpvplayer.player.engine.PlayerAction
 import com.tapman104.mpvplayer.player.engine.PlayerEngine
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import mpv.potato.tapman104.player.model.QuickActionsPosition
 
 /**
  * Thin lifecycle bridge between the Android ViewModel lifecycle and [PlayerEngine].
@@ -38,6 +43,10 @@ class PlayerViewModel(
     val volumeSwipe = engine.volumeSwipe
     val longPress2x = engine.longPress2x
     val gestureSensitivity = engine.gestureSensitivity
+
+    val quickActionsPosition: StateFlow<QuickActionsPosition> =
+        engine.quickActionsPosition
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), QuickActionsPosition.BOTTOM_LEFT)
 
     // ── Engine reference (needed by PlayerActivity for surface wiring) ────────
 

@@ -7,6 +7,7 @@ import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import mpv.potato.tapman104.player.model.QuickActionsPosition
 
 class SettingsViewModel(
     private val userPreferencesRepository: UserPreferencesRepository
@@ -62,6 +63,9 @@ class SettingsViewModel(
 
     val backgroundPlay = userPreferencesRepository.backgroundPlay
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY)
+
+    val quickActionsPosition = userPreferencesRepository.quickActionsPosition
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), QuickActionsPosition.BOTTOM_LEFT)
 
     fun setSubtitleLanguage(lang: String) {
         viewModelScope.launch {
@@ -162,6 +166,12 @@ class SettingsViewModel(
     fun setBackgroundPlay(mode: String) {
         viewModelScope.launch {
             userPreferencesRepository.setBackgroundPlay(mode)
+        }
+    }
+
+    fun setQuickActionsPosition(position: QuickActionsPosition) {
+        viewModelScope.launch {
+            userPreferencesRepository.setQuickActionsPosition(position)
         }
     }
 }

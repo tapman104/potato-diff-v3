@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import mpv.potato.tapman104.player.model.QuickActionsPosition
 
 private val Context.userPrefsDataStore by preferencesDataStore(name = "user_prefs")
 
@@ -64,6 +65,8 @@ class UserPreferencesRepository(private val context: Context) {
 
         val BACKGROUND_PLAY = stringPreferencesKey("background_play")
         const val DEFAULT_BACKGROUND_PLAY = "off"
+
+        val QUICK_ACTIONS_POSITION = stringPreferencesKey("quick_actions_position")
     }
 
     /** Emits the saved subtitle language preference, defaulting to "en". */
@@ -133,6 +136,11 @@ class UserPreferencesRepository(private val context: Context) {
 
     val backgroundPlay: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
         prefs[BACKGROUND_PLAY] ?: DEFAULT_BACKGROUND_PLAY
+    }
+
+    val quickActionsPosition: Flow<QuickActionsPosition> = context.userPrefsDataStore.data.map { prefs ->
+        val raw = prefs[QUICK_ACTIONS_POSITION] ?: QuickActionsPosition.BOTTOM_LEFT.name
+        runCatching { QuickActionsPosition.valueOf(raw) }.getOrDefault(QuickActionsPosition.BOTTOM_LEFT)
     }
 
     suspend fun setSubtitleLanguage(lang: String) {
@@ -234,6 +242,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun setBackgroundPlay(mode: String) {
         context.userPrefsDataStore.edit { prefs ->
             prefs[BACKGROUND_PLAY] = mode
+        }
+    }
+
+    suspend fun setQuickActionsPosition(position: QuickActionsPosition) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[QUICK_ACTIONS_POSITION] = position.name
         }
     }
 }

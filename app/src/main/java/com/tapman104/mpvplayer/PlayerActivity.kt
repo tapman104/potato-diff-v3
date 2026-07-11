@@ -32,6 +32,7 @@ import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.core.engine.MpvController
 import com.tapman104.mpvplayer.settings.SettingsViewModel
 import com.tapman104.mpvplayer.settings.SettingsViewModelFactory
+import mpv.potato.tapman104.player.model.QuickActionsPosition
 
 
 class PlayerActivity : ComponentActivity() {
@@ -144,6 +145,9 @@ class PlayerActivity : ComponentActivity() {
                 val gestureSensitivity by viewModel.gestureSensitivity.collectAsStateWithLifecycle(
                     initialValue = UserPreferencesRepository.DEFAULT_GESTURE_SENSITIVITY
                 )
+                val quickActionsPosition by viewModel.quickActionsPosition.collectAsStateWithLifecycle(
+                    initialValue = QuickActionsPosition.BOTTOM_LEFT
+                )
 
                 var pendingResumeMs by remember { mutableStateOf(0L) }
                 var showSettings by remember { mutableStateOf(false) }
@@ -236,6 +240,7 @@ class PlayerActivity : ComponentActivity() {
                     volumeSwipe = volumeSwipe,
                     longPress2x = longPress2x,
                     gestureSensitivity = gestureSensitivity,
+                    quickActionsPosition = quickActionsPosition,
                 )
 
                 if (showSettings) {

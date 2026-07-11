@@ -20,6 +20,7 @@ fun PlayerBottomControls(
     onSelectSubtitleTrack: () -> Unit,
     onDecodeModeClick: () -> Unit,
     onMoreOptions: () -> Unit,
+    showQuickActions: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     mpv.potato.tapman104.player.controls.PlayerBottomControls(
@@ -37,6 +38,7 @@ fun PlayerBottomControls(
         onSelectSubtitleTrack = onSelectSubtitleTrack,
         onDecodeModeClick = onDecodeModeClick,
         onMoreOptions = onMoreOptions,
+        showQuickActions = showQuickActions,
         modifier = modifier
     )
 }

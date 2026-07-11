@@ -85,6 +85,7 @@ class PlayerEngine(
     val volumeSwipe = preferencesRepository.volumeSwipe
     val longPress2x = preferencesRepository.longPress2x
     val gestureSensitivity = preferencesRepository.gestureSensitivity
+    val quickActionsPosition = preferencesRepository.quickActionsPosition
 
     // ── Speed override tracking ───────────────────────────────────────────────
 
