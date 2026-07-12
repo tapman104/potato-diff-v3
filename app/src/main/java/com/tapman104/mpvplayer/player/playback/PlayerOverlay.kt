@@ -262,20 +262,31 @@ fun PlayerOverlay(
                 modifier = Modifier
                     .fillMaxWidth()
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    PlayerTopBar(
-                        fileName = fileName,
-                        onBack = onBack,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // TopBar (back button + filename) takes all remaining space
+                    Box(modifier = Modifier.weight(1f)) {
+                        PlayerTopBar(
+                            fileName = fileName,
+                            onBack = onBack,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
+                    // Quick actions on the right — only when TOP_RIGHT
                     if (quickActionsPosition == QuickActionsPosition.TOP_RIGHT) {
                         PlayerQuickActions(
                             decodeMode = playerState.decodeMode,
                             onSelectAudioTrack = onOpenAudioDialog,
                             onSelectSubtitleTrack = onOpenSubtitleDialog,
                             onDecodeModeClick = onOpenDecodeDialog,
-                            onMoreOptions = onOpenMoreOptions
+                            onMoreOptions = onOpenMoreOptions,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .height(56.dp)
+                                .wrapContentHeight(Alignment.CenterVertically)
                         )
                     }
                 }
@@ -307,35 +318,41 @@ fun PlayerOverlay(
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                PlayerBottomControls(
-                    isPlaying = playerState.isPlaying,
-                    currentPositionMs = positionState.currentPositionMs,
-                    durationMs = positionState.durationMs,
-                    bufferPositionMs = positionState.demuxerCacheTimeMs,
-                    gestureSeekPreviewMs = gestureSeekPreviewMs,
-                    decodeMode = playerState.decodeMode,
-                    showQuickActions = quickActionsPosition == QuickActionsPosition.BOTTOM_LEFT,
-                    onTogglePlay = onTogglePlay,
-                    onSeek = onSeekCommitAction,
-                    onSeekGesture = onSeekGestureDrag,
-                    onSeekPreviewMs = onSeekPreviewMs,
-                    onSelectAudioTrack = onOpenAudioDialog,
-                    onSelectSubtitleTrack = onOpenSubtitleDialog,
-                    onDecodeModeClick = onOpenDecodeDialog,
-                    onMoreOptions = onOpenMoreOptions
-                )
-                PlayerViewControls(
-                    currentViewMode = currentViewMode,
-                    onCycleViewMode = onCycleViewMode,
-                    onRotate = onRotate,
-                    onEnterPip = onEnterPip,
-                    modifier = Modifier.align(Alignment.BottomEnd)
-                )
-            }
+            PlayerBottomControls(
+                isPlaying = playerState.isPlaying,
+                currentPositionMs = positionState.currentPositionMs,
+                durationMs = positionState.durationMs,
+                bufferPositionMs = positionState.demuxerCacheTimeMs,
+                gestureSeekPreviewMs = gestureSeekPreviewMs,
+                decodeMode = playerState.decodeMode,
+                showQuickActions = quickActionsPosition == QuickActionsPosition.BOTTOM_LEFT,
+                onTogglePlay = onTogglePlay,
+                onSeek = onSeekCommitAction,
+                onSeekGesture = onSeekGestureDrag,
+                onSeekPreviewMs = onSeekPreviewMs,
+                onSelectAudioTrack = onOpenAudioDialog,
+                onSelectSubtitleTrack = onOpenSubtitleDialog,
+                onDecodeModeClick = onOpenDecodeDialog,
+                onMoreOptions = onOpenMoreOptions
+            )
+        }
+
+        // VIEW CONTROLS — separate, anchored BottomEnd, with bottom padding to
+        // sit ABOVE the seek bar, not overlapping it
+        AnimatedVisibility(
+            visible = overlayState.areControlsVisible,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(200)),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 8.dp, end = 8.dp)
+        ) {
+            PlayerViewControls(
+                currentViewMode = currentViewMode,
+                onCycleViewMode = onCycleViewMode,
+                onRotate = onRotate,
+                onEnterPip = onEnterPip
+            )
         }
 
         // ── LOADING INDICATOR ─────────────────────────────────────────────────
