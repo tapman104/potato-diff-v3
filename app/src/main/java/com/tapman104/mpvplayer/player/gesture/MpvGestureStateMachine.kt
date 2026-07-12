@@ -21,7 +21,8 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     @Volatile var brightnessSwipeEnabled: Boolean = true
     @Volatile var volumeSwipeEnabled: Boolean = true
     @Volatile var longPress2xEnabled: Boolean = true
-    @Volatile var deadzoneMultiplier: Float = 1.0f
+
+    var onGestureActiveChange: ((Boolean) -> Unit)? = null
 
     companion object {
         const val EDGE_DEAD_ZONE_DP = 48f
@@ -38,12 +39,9 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         const val MULTI_TAP_INACTIVITY_TIMEOUT_MS = 800L
         const val LONG_PRESS_HOLD_MS = 500L
         const val DYNAMIC_SPEED_UNLOCK_DX_DP = 10f
-        const val BRIGHTNESS_SENSITIVITY_PER_PX = 0.001f
-        const val VOLUME_SENSITIVITY_PER_PX = 0.002f
+        const val HORIZONTAL_SEEK_DURATION_FRACTION = 0.15f
         const val ZOOM_LOG2_MIN = -1.0f
         const val ZOOM_LOG2_MAX = 3.0f
-        const val ZOOM_SENSITIVITY_MULTIPLIER = 1.2f
-        const val PAN_SMOOTHING_ALPHA = 0.5f
         val SPEED_PRESETS = floatArrayOf(0.25f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 4.0f)
         val MULTI_TAP_SEEK_CURVE_SEC = intArrayOf(10, 20, 30, 40, 50, 60)
     }
@@ -60,7 +58,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         midpointX: Float = x,
         midpointY: Float = y
     ) {
-        val deadZonePx = EDGE_DEAD_ZONE_DP * density * deadzoneMultiplier
+        val deadZonePx = EDGE_DEAD_ZONE_DP * density
         if (x < deadZonePx || x > controller.screenWidthPx - deadZonePx ||
             y < deadZonePx || y > controller.screenHeightPx - deadZonePx
         ) {
@@ -291,7 +289,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
             val wasPaused = controller.isPaused
             val duration = max(1L, controller.durationMs)
             val initialPos = controller.currentPositionMs
-            val sensitivity = max(0.1f, (duration / controller.screenWidthPx) * 0.15f)
+            val sensitivity = (duration.toFloat() / max(1f, controller.screenWidthPx)) * HORIZONTAL_SEEK_DURATION_FRACTION
 
             val initialState = GestureState.HorizontalSeek(
                 initialVideoPositionMs = initialPos,
@@ -368,7 +366,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val deltaY = currentY - state.anchorY
 
         if (state.isVolumeSide) {
-            val rawOffset = -deltaY * VOLUME_SENSITIVITY_PER_PX * 100f
+            val rawOffset = -deltaY * (100f / max(1f, controller.screenHeightPx))
             var newVolume = state.initialValue + rawOffset
 
             val standardMax = controller.maxStandardVolume
@@ -407,7 +405,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
                 transitionTo(state.copy(currentY = currentY, currentValue = clampedVolume))
             }
         } else {
-            val rawOffset = -deltaY * BRIGHTNESS_SENSITIVITY_PER_PX
+            val rawOffset = -deltaY * (1.0f / max(1f, controller.screenHeightPx))
             val newBrightness = (state.initialValue + rawOffset).coerceIn(0f, 1.0f)
             controller.setBrightness(newBrightness)
             transitionTo(state.copy(currentY = currentY, currentValue = newBrightness))
@@ -476,7 +474,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     private fun handlePinchZoomPanMove(state: GestureState.PinchZoomPan, currentSpan: Float, midpointX: Float, midpointY: Float) {
         val validPrevSpan = max(1f, state.prevSpan)
         val validCurrentSpan = max(1f, currentSpan)
-        val deltaZoom = ln(validCurrentSpan / validPrevSpan) * ZOOM_SENSITIVITY_MULTIPLIER
+        val deltaZoom = ln(validCurrentSpan / validPrevSpan)
 
         val newZoomLog2 = (state.currentZoomLog2 + deltaZoom).coerceIn(ZOOM_LOG2_MIN, ZOOM_LOG2_MAX)
         val scale = 2.0f.pow(newZoomLog2).coerceAtLeast(0.5f)
@@ -520,7 +518,7 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
         val normDx = deltaX / (controller.screenWidthPx * scale)
         val normDy = deltaY / (controller.screenHeightPx * scale)
 
-        val alpha = PAN_SMOOTHING_ALPHA
+        val alpha = 1.0f
         val smoothedPanX = currentPanX + alpha * normDx
         val smoothedPanY = currentPanY + alpha * normDy
 
@@ -658,10 +656,15 @@ class MpvGestureStateMachine(private val controller: MpvPlayerController) {
     }
 
     private fun transitionTo(newState: GestureState) {
+        val wasIdle = currentState is GestureState.Idle
         if (currentState is GestureState.MultiTapSeeking && newState !is GestureState.MultiTapSeeking) {
             controller.hideDoubleTapSeekOverlay()
         }
         currentState = newState
+        val isIdle = newState is GestureState.Idle
+        if (wasIdle != isIdle) {
+            onGestureActiveChange?.invoke(!isIdle)
+        }
     }
 
     private fun classifyTapRegion(x: Float): TapRegion {

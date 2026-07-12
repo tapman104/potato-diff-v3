@@ -50,7 +50,6 @@ fun PlayerScreen(
     brightnessSwipe: Boolean = true,
     volumeSwipe: Boolean = true,
     longPress2x: Boolean = true,
-    gestureSensitivity: String = "normal",
     quickActionsPosition: QuickActionsPosition = QuickActionsPosition.BOTTOM_LEFT,
     modifier: Modifier = Modifier
 ) {
@@ -105,7 +104,6 @@ fun PlayerScreen(
                 brightnessSwipe = brightnessSwipe,
                 volumeSwipe = volumeSwipe,
                 longPress2x = longPress2x,
-                gestureSensitivity = gestureSensitivity,
                 quickActionsPosition = quickActionsPosition,
                 modifier = Modifier.fillMaxSize()
             )

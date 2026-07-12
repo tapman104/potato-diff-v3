@@ -95,7 +95,6 @@ fun SettingsScreen(
     val brightnessSwipe by viewModel.brightnessSwipe.collectAsStateWithLifecycle()
     val volumeSwipe by viewModel.volumeSwipe.collectAsStateWithLifecycle()
     val longPress2x by viewModel.longPress2x.collectAsStateWithLifecycle()
-    val gestureSensitivity by viewModel.gestureSensitivity.collectAsStateWithLifecycle()
     val backgroundPlay by viewModel.backgroundPlay.collectAsStateWithLifecycle()
 
     var currentSection by remember { mutableStateOf<SettingsNavSection?>(null) }
@@ -159,8 +158,6 @@ fun SettingsScreen(
                 onVolumeSwipeChange = { viewModel.setVolumeSwipe(it) },
                 longPress2x = longPress2x,
                 onLongPress2xChange = { viewModel.setLongPress2x(it) },
-                gestureSensitivity = gestureSensitivity,
-                onGestureSensitivityChange = { viewModel.setGestureSensitivity(it) },
                 onBack = { currentSection = null },
                 modifier = modifier
             )
@@ -556,8 +553,6 @@ private fun GesturesControlsCategoryScreen(
     onVolumeSwipeChange: (Boolean) -> Unit,
     longPress2x: Boolean,
     onLongPress2xChange: (Boolean) -> Unit,
-    gestureSensitivity: String,
-    onGestureSensitivityChange: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -622,33 +617,6 @@ private fun GesturesControlsCategoryScreen(
                 onCheckedChange = onLongPress2xChange
             )
         }
-
-        SettingsCard {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Gesture Sensitivity",
-                    color = SettingsColors.OnSurface,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Deadzone & swipe threshold adjustment",
-                    color = SettingsColors.OnSurfaceMed,
-                    fontSize = 12.sp
-                )
-                Spacer(Modifier.height(12.dp))
-                SegmentedChipGroup(
-                    options = listOf(
-                        ChipOption("Low", "low"),
-                        ChipOption("Normal", "normal"),
-                        ChipOption("High", "high")
-                    ),
-                    selectedValue = gestureSensitivity,
-                    onSelect = onGestureSensitivityChange
-                )
-            }
-        }
-
         Spacer(Modifier.height(32.dp))
     }
 }

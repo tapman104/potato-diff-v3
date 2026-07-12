@@ -142,9 +142,6 @@ class PlayerActivity : ComponentActivity() {
                 val longPress2x by viewModel.longPress2x.collectAsStateWithLifecycle(
                     initialValue = UserPreferencesRepository.DEFAULT_LONG_PRESS_2X
                 )
-                val gestureSensitivity by viewModel.gestureSensitivity.collectAsStateWithLifecycle(
-                    initialValue = UserPreferencesRepository.DEFAULT_GESTURE_SENSITIVITY
-                )
                 val quickActionsPosition by viewModel.quickActionsPosition.collectAsStateWithLifecycle(
                     initialValue = QuickActionsPosition.BOTTOM_LEFT
                 )
@@ -239,7 +236,6 @@ class PlayerActivity : ComponentActivity() {
                     brightnessSwipe = brightnessSwipe,
                     volumeSwipe = volumeSwipe,
                     longPress2x = longPress2x,
-                    gestureSensitivity = gestureSensitivity,
                     quickActionsPosition = quickActionsPosition,
                 )
 

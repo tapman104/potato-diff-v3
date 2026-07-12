@@ -39,6 +39,24 @@ import com.tapman104.mpvplayer.player.state.PositionState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+sealed interface OverlayDialog {
+    data object AudioTracks : OverlayDialog
+    data object SubtitleTracks : OverlayDialog
+    data object SubtitleAppearance : OverlayDialog
+    data object DecodeModePicker : OverlayDialog
+    data object MoreOptions : OverlayDialog
+}
+
+@Stable
+data class OverlayUiState(
+    val areControlsVisible: Boolean = true,
+    val activeDialog: OverlayDialog? = null,
+    val isGestureActive: Boolean = false
+) {
+    val shouldAutoHide: Boolean
+        get() = areControlsVisible && activeDialog == null && !isGestureActive
+}
+
 @Composable
 fun PlayerOverlay(
     fileName: String,
@@ -74,16 +92,10 @@ fun PlayerOverlay(
     brightnessSwipe: Boolean = true,
     volumeSwipe: Boolean = true,
     longPress2x: Boolean = true,
-    gestureSensitivity: String = "normal",
     quickActionsPosition: QuickActionsPosition = QuickActionsPosition.BOTTOM_LEFT,
     modifier: Modifier = Modifier
 ) {
-    var controlsVisible by remember { mutableStateOf(true) }
-    var showAudioDialog by remember { mutableStateOf(false) }
-    var showSubtitleDialog by remember { mutableStateOf(false) }
-    var showSubtitleAppearanceDialog by remember { mutableStateOf(false) }
-    var showDecodeModeDialog by remember { mutableStateOf(false) }
-    var showMoreOptionsSheet by remember { mutableStateOf(false) }
+    var overlayState by remember { mutableStateOf(OverlayUiState()) }
     // Drives the animated visibility of the decode-mode dialog independently so
     // we can play the exit animation before the dialog is removed from composition.
     var decodeDialogVisible by remember { mutableStateOf(false) }
@@ -97,19 +109,17 @@ fun PlayerOverlay(
 
     // When the decode dialog is requested, immediately hide the player controls
     // so the dialog appears on a clean, uncluttered background.
-    LaunchedEffect(showDecodeModeDialog) {
-        if (showDecodeModeDialog) {
-            controlsVisible = false
+    LaunchedEffect(overlayState.activeDialog) {
+        if (overlayState.activeDialog == OverlayDialog.DecodeModePicker) {
+            overlayState = overlayState.copy(areControlsVisible = false)
             decodeDialogVisible = true
         }
     }
 
-    // Auto-hide controls after 3 s of inactivity. Dialogs suppress auto-hide via the guard
-    // inside the effect body — they don't need to be keys, as the body rechecks on each resume.
-    LaunchedEffect(controlsVisible) {
-        if (controlsVisible && !showAudioDialog && !showSubtitleDialog && !showSubtitleAppearanceDialog && !showDecodeModeDialog && !showMoreOptionsSheet) {
+    LaunchedEffect(overlayState.shouldAutoHide) {
+        if (overlayState.shouldAutoHide) {
             delay(3000L)
-            controlsVisible = false
+            overlayState = overlayState.copy(areControlsVisible = false)
         }
     }
 
@@ -123,7 +133,29 @@ fun PlayerOverlay(
             onSeekCommit(posMs)
         }
     }
-    val onToggleControls = remember { { controlsVisible = !controlsVisible } }
+    val onToggleControls = remember {
+        { overlayState = overlayState.copy(areControlsVisible = !overlayState.areControlsVisible) }
+    }
+    val onOpenAudioDialog = remember {
+        { overlayState = overlayState.copy(activeDialog = OverlayDialog.AudioTracks) }
+    }
+    val onOpenSubtitleDialog = remember {
+        { overlayState = overlayState.copy(activeDialog = OverlayDialog.SubtitleTracks) }
+    }
+    val onOpenDecodeDialog = remember {
+        { overlayState = overlayState.copy(activeDialog = OverlayDialog.DecodeModePicker) }
+    }
+    val onOpenMoreOptions = remember {
+        { overlayState = overlayState.copy(activeDialog = OverlayDialog.MoreOptions) }
+    }
+    val onDismissDialog = remember {
+        { overlayState = overlayState.copy(activeDialog = null) }
+    }
+    val onGestureActiveChange = remember {
+        { active: Boolean ->
+            overlayState = overlayState.copy(isGestureActive = active)
+        }
+    }
     val onVolumeChangeAction = remember(onVolumeChange) {
         { vol: Int ->
             volumePercentage = vol
@@ -175,12 +207,12 @@ fun PlayerOverlay(
             brightnessSwipe = brightnessSwipe,
             volumeSwipe = volumeSwipe,
             longPress2x = longPress2x,
-            gestureSensitivity = gestureSensitivity
+            onGestureActiveChange = onGestureActiveChange
         )
 
         // ── GRADIENT SCRIMS ──────────────────────────────────────────────────
         val scrimAlpha by animateFloatAsState(
-            targetValue = if (controlsVisible) 1f else 0f,
+            targetValue = if (overlayState.areControlsVisible) 1f else 0f,
             animationSpec = tween(200),
             label = "ScrimAlpha"
         )
@@ -215,7 +247,7 @@ fun PlayerOverlay(
 
         // ── TOP BAR ──────────────────────────────────────────────────────────
         AnimatedVisibility(
-            visible = controlsVisible,
+            visible = overlayState.areControlsVisible,
             enter = fadeIn(tween(200)),
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.TopCenter)
@@ -234,13 +266,10 @@ fun PlayerOverlay(
                     if (quickActionsPosition == QuickActionsPosition.TOP_RIGHT) {
                         PlayerQuickActions(
                             decodeMode = playerState.decodeMode,
-                            onSelectAudioTrack = remember { { showAudioDialog = true } },
-                            onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
-                            onDecodeModeClick = remember { { showDecodeModeDialog = true } },
-                            onMoreOptions = remember { { showMoreOptionsSheet = true } },
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(end = 16.dp)
+                            onSelectAudioTrack = onOpenAudioDialog,
+                            onSelectSubtitleTrack = onOpenSubtitleDialog,
+                            onDecodeModeClick = onOpenDecodeDialog,
+                            onMoreOptions = onOpenMoreOptions
                         )
                     }
                 }
@@ -255,10 +284,10 @@ fun PlayerOverlay(
                     ) {
                         PlayerQuickActions(
                             decodeMode = playerState.decodeMode,
-                            onSelectAudioTrack = remember { { showAudioDialog = true } },
-                            onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
-                            onDecodeModeClick = remember { { showDecodeModeDialog = true } },
-                            onMoreOptions = remember { { showMoreOptionsSheet = true } }
+                            onSelectAudioTrack = onOpenAudioDialog,
+                            onSelectSubtitleTrack = onOpenSubtitleDialog,
+                            onDecodeModeClick = onOpenDecodeDialog,
+                            onMoreOptions = onOpenMoreOptions
                         )
                     }
                 }
@@ -267,7 +296,7 @@ fun PlayerOverlay(
 
         // ── BOTTOM CONTROLS ───────────────────────────────────────────────────
         AnimatedVisibility(
-            visible = controlsVisible,
+            visible = overlayState.areControlsVisible,
             enter = fadeIn(tween(200)),
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -288,10 +317,10 @@ fun PlayerOverlay(
                     onSeek = onSeekCommitAction,
                     onSeekGesture = onSeekGestureDrag,
                     onSeekPreviewMs = onSeekPreviewMs,
-                    onSelectAudioTrack = remember { { showAudioDialog = true } },
-                    onSelectSubtitleTrack = remember { { showSubtitleDialog = true } },
-                    onDecodeModeClick = remember { { showDecodeModeDialog = true } },
-                    onMoreOptions = remember { { showMoreOptionsSheet = true } }
+                    onSelectAudioTrack = onOpenAudioDialog,
+                    onSelectSubtitleTrack = onOpenSubtitleDialog,
+                    onDecodeModeClick = onOpenDecodeDialog,
+                    onMoreOptions = onOpenMoreOptions
                 )
             }
         }
@@ -305,62 +334,61 @@ fun PlayerOverlay(
         }
 
         // ── DIALOGS ───────────────────────────────────────────────────────────
-        if (showAudioDialog) {
+        if (overlayState.activeDialog == OverlayDialog.AudioTracks) {
             AudioTrackDialog(
                 tracks = playerState.audioTracks,
                 selectedTrackId = playerState.currentAudioTrackId,
                 onSelectTrack = {
                     onAudioTrackSelected(it)
-                    showAudioDialog = false
+                    onDismissDialog()
                 },
                 onAddAudioClick = {
                     onAddAudioClick()
-                    showAudioDialog = false
+                    onDismissDialog()
                 },
-                onDismiss = { showAudioDialog = false }
+                onDismiss = onDismissDialog
             )
         }
 
-        if (showSubtitleDialog) {
+        if (overlayState.activeDialog == OverlayDialog.SubtitleTracks) {
             SubtitleTrackDialog(
                 tracks = playerState.subtitleTracks,
                 selectedTrackId = playerState.currentSubtitleTrackId,
                 onSelectTrack = {
                     onSubtitleTrackSelected(it)
-                    showSubtitleDialog = false
+                    onDismissDialog()
                 },
                 onDisableSubtitles = {
                     onDisableSubtitles()
-                    showSubtitleDialog = false
+                    onDismissDialog()
                 },
                 onAddSubtitleClick = {
                     onAddSubtitleClick()
-                    showSubtitleDialog = false
+                    onDismissDialog()
                 },
                 onAppearanceClick = {
-                    showSubtitleDialog = false
-                    showSubtitleAppearanceDialog = true
+                    overlayState = overlayState.copy(activeDialog = OverlayDialog.SubtitleAppearance)
                 },
-                onDismiss = { showSubtitleDialog = false }
+                onDismiss = onDismissDialog
             )
         }
 
-        if (showSubtitleAppearanceDialog) {
+        if (overlayState.activeDialog == OverlayDialog.SubtitleAppearance) {
             SubtitleAppearanceDialog(
                 initialSize = playerState.subtitleSize,
                 initialPosition = playerState.subtitlePosition,
                 onApply = { size, position ->
                     onSubtitleSizeChange(size)
                     onSubtitlePositionChange(position)
-                    showSubtitleAppearanceDialog = false
+                    onDismissDialog()
                 },
-                onDismiss = { showSubtitleAppearanceDialog = false },
+                onDismiss = onDismissDialog,
                 onReset = { onSubtitleAppearanceReset() }
             )
         }
 
         // ── DECODE MODE DIALOG (animated) ────────────────────────────────────
-        if (showDecodeModeDialog) {
+        if (overlayState.activeDialog == OverlayDialog.DecodeModePicker) {
             LaunchedEffect(Unit) { onPause() }
 
             AnimatedVisibility(
@@ -385,7 +413,7 @@ fun PlayerOverlay(
                             decodeDialogVisible = false
                             delay(220L)   // slightly longer than exit tween to guarantee completion
                             onCycleDecodeMode(mode)   // ViewModel delays 150 ms then switches hwdec + resumes
-                            showDecodeModeDialog = false
+                            onDismissDialog()
                             pendingDecodeMode = null
                         }
                     },
@@ -393,7 +421,7 @@ fun PlayerOverlay(
                         coroutineScope.launch {
                             decodeDialogVisible = false
                             delay(220L)
-                            showDecodeModeDialog = false
+                            onDismissDialog()
                             onPlay()   // Player was explicitly paused; resume it.
                         }
                     }
@@ -401,7 +429,7 @@ fun PlayerOverlay(
             }
         }
 
-        if (showMoreOptionsSheet) {
+        if (overlayState.activeDialog == OverlayDialog.MoreOptions) {
             MoreOptionsSheet(
                 playbackSpeed = playerState.playbackSpeed.toFloat(),
                 fileInfo = fileInfo,
@@ -409,7 +437,7 @@ fun PlayerOverlay(
                     onSpeedOverride(speed)
                 },
                 onOpenSettings = onOpenSettingsAction,
-                onDismiss = { showMoreOptionsSheet = false }
+                onDismiss = onDismissDialog
             )
         }
     }
