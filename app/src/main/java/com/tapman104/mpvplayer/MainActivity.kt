@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -43,6 +44,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             MpvPlayerTheme {
                 var showSettings by remember { mutableStateOf(false) }
+
+                BackHandler(enabled = showSettings) {
+                    showSettings = false
+                }
 
                 val transition = updateTransition(targetState = showSettings, label = "nav")
 

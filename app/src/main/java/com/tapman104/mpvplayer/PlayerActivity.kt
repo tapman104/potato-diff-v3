@@ -15,6 +15,7 @@ import android.view.SurfaceView
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import kotlin.math.roundToInt
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -255,6 +256,10 @@ class PlayerActivity : ComponentActivity() {
                 if (showSettings) {
                     val settingsViewModel: SettingsViewModel by viewModels {
                         SettingsViewModelFactory(UserPreferencesRepository(application))
+                    }
+                    BackHandler {
+                        showSettings = false
+                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                     }
                     SettingsScreen(
                         viewModel = settingsViewModel,
