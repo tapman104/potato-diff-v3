@@ -19,6 +19,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private fun parseDisplayName(fileName: String): String {
+    // Strip file extension
+    var name = fileName.substringBeforeLast(".")
+
+    // Remove common bracket tags: [720p], [1080p], [Sub], [Dub], [x265], [HEVC], etc.
+    name = name.replace(Regex("\\[[^\\]]{1,20}\\]"), "")
+
+    // Remove common paren tags: (2024), (BD), (WEB-DL), etc.
+    name = name.replace(Regex("\\([^)]{1,20}\\)"), "")
+
+    // Normalize separators: dots and underscores to spaces
+    name = name.replace(".", " ").replace("_", " ")
+
+    // Collapse multiple spaces
+    name = name.replace(Regex("\\s{2,}"), " ").trim()
+
+    return name.ifBlank { fileName }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerTopBar(
@@ -43,7 +62,7 @@ fun PlayerTopBar(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = fileName,
+                    text = parseDisplayName(fileName),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = TextStyle(

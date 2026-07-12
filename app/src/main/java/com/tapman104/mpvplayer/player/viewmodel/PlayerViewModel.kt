@@ -5,10 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tapman104.mpvplayer.player.engine.PlayerAction
 import com.tapman104.mpvplayer.player.engine.PlayerEngine
+import `is`.xyz.mpv.MPVLib
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import mpv.potato.tapman104.player.model.QuickActionsPosition
+import mpv.potato.tapman104.player.model.ViewMode
 
 /**
  * Thin lifecycle bridge between the Android ViewModel lifecycle and [PlayerEngine].
@@ -45,7 +49,7 @@ class PlayerViewModel(
 
     val quickActionsPosition: StateFlow<QuickActionsPosition> =
         engine.quickActionsPosition
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), QuickActionsPosition.BOTTOM_LEFT)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), QuickActionsPosition.TOP_RIGHT)
 
     // ── Engine reference (needed by PlayerActivity for surface wiring) ────────
 
@@ -79,6 +83,37 @@ class PlayerViewModel(
 
     fun clearResumePosition(filePath: String) =
         engine.clearResumePosition(filePath)
+
+    // ── View mode & rotation state ────────────────────────────────────────────
+
+    private val _viewMode = MutableStateFlow(ViewMode.FIT)
+    val viewMode: StateFlow<ViewMode> = _viewMode.asStateFlow()
+
+    private var currentRotation = 0
+
+    fun cycleViewMode() {
+        val nextIndex = (_viewMode.value.ordinal + 1) % ViewMode.entries.size
+        val nextMode = ViewMode.entries[nextIndex]
+        _viewMode.value = nextMode
+
+        controller.executor.execute {
+            val panScan = nextMode.mpvPanScan ?: 0f
+            MPVLib.setPropertyDouble("video-pan-scan", panScan.toDouble())
+            MPVLib.setPropertyDouble("panscan", panScan.toDouble())
+            when (val aspect = nextMode.mpvAspect) {
+                null -> MPVLib.setPropertyString("video-aspect-override", "no")
+                -1f -> MPVLib.setPropertyString("video-aspect-override", "-1")
+                else -> MPVLib.setPropertyString("video-aspect-override", aspect.toString())
+            }
+        }
+    }
+
+    fun toggleVideoRotate() {
+        currentRotation = if (currentRotation == 0) 90 else 0
+        controller.executor.execute {
+            MPVLib.setPropertyString("video-rotate", currentRotation.toString())
+        }
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 

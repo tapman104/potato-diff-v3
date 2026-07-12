@@ -12,6 +12,7 @@ import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import com.tapman104.mpvplayer.player.model.DecodeMode
 import mpv.potato.tapman104.player.model.QuickActionsPosition
+import mpv.potato.tapman104.player.model.ViewMode
 import mpv.potato.tapman104.ui.theme.PlayerTheme
 
 @Composable
@@ -50,7 +51,11 @@ fun PlayerScreen(
     brightnessSwipe: Boolean = true,
     volumeSwipe: Boolean = true,
     longPress2x: Boolean = true,
-    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.BOTTOM_LEFT,
+    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.TOP_RIGHT,
+    currentViewMode: ViewMode = ViewMode.FIT,
+    onCycleViewMode: () -> Unit = {},
+    onRotate: () -> Unit = {},
+    onEnterPip: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -105,6 +110,10 @@ fun PlayerScreen(
                 volumeSwipe = volumeSwipe,
                 longPress2x = longPress2x,
                 quickActionsPosition = quickActionsPosition,
+                currentViewMode = currentViewMode,
+                onCycleViewMode = onCycleViewMode,
+                onRotate = onRotate,
+                onEnterPip = onEnterPip,
                 modifier = Modifier.fillMaxSize()
             )
         }

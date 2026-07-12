@@ -1,11 +1,13 @@
 package com.tapman104.mpvplayer
 
+import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.KeyEvent
@@ -143,8 +145,9 @@ class PlayerActivity : ComponentActivity() {
                     initialValue = UserPreferencesRepository.DEFAULT_LONG_PRESS_2X
                 )
                 val quickActionsPosition by viewModel.quickActionsPosition.collectAsStateWithLifecycle(
-                    initialValue = QuickActionsPosition.BOTTOM_LEFT
+                    initialValue = QuickActionsPosition.TOP_RIGHT
                 )
+                val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
 
                 var pendingResumeMs by remember { mutableStateOf(0L) }
                 var showSettings by remember { mutableStateOf(false) }
@@ -237,6 +240,16 @@ class PlayerActivity : ComponentActivity() {
                     volumeSwipe = volumeSwipe,
                     longPress2x = longPress2x,
                     quickActionsPosition = quickActionsPosition,
+                    currentViewMode = viewMode,
+                    onCycleViewMode = { viewModel.cycleViewMode() },
+                    onRotate = { viewModel.toggleVideoRotate() },
+                    onEnterPip = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            runCatching {
+                                enterPictureInPictureMode(PictureInPictureParams.Builder().build())
+                            }
+                        }
+                    },
                 )
 
                 if (showSettings) {

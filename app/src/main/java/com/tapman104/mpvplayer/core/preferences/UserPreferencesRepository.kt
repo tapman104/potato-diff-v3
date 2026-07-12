@@ -64,6 +64,7 @@ class UserPreferencesRepository(private val context: Context) {
         const val DEFAULT_BACKGROUND_PLAY = "off"
 
         val QUICK_ACTIONS_POSITION = stringPreferencesKey("quick_actions_position")
+        val DEFAULT_QUICK_ACTIONS_POSITION = QuickActionsPosition.TOP_RIGHT
     }
 
     /** Emits the saved subtitle language preference, defaulting to "en". */
@@ -132,8 +133,8 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     val quickActionsPosition: Flow<QuickActionsPosition> = context.userPrefsDataStore.data.map { prefs ->
-        val raw = prefs[QUICK_ACTIONS_POSITION] ?: QuickActionsPosition.BOTTOM_LEFT.name
-        runCatching { QuickActionsPosition.valueOf(raw) }.getOrDefault(QuickActionsPosition.BOTTOM_LEFT)
+        val raw = prefs[QUICK_ACTIONS_POSITION] ?: QuickActionsPosition.TOP_RIGHT.name
+        runCatching { QuickActionsPosition.valueOf(raw) }.getOrDefault(QuickActionsPosition.TOP_RIGHT)
     }
 
     suspend fun setSubtitleLanguage(lang: String) {

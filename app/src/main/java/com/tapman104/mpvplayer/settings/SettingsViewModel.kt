@@ -65,7 +65,7 @@ class SettingsViewModel(
         .asState(UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY)
 
     val quickActionsPosition = userPreferencesRepository.quickActionsPosition
-        .asState(QuickActionsPosition.BOTTOM_LEFT)
+        .asState(UserPreferencesRepository.DEFAULT_QUICK_ACTIONS_POSITION)
 
     fun setSubtitleLanguage(lang: String) {
         viewModelScope.launch {

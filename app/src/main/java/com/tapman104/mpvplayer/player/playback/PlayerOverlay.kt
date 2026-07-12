@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import mpv.potato.tapman104.player.controls.PlayerBottomControls
 import mpv.potato.tapman104.player.controls.PlayerQuickActions
 import mpv.potato.tapman104.player.controls.PlayerTopBar
+import mpv.potato.tapman104.player.controls.PlayerViewControls
 import mpv.potato.tapman104.player.model.QuickActionsPosition
+import mpv.potato.tapman104.player.model.ViewMode
 import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
@@ -92,7 +94,11 @@ fun PlayerOverlay(
     brightnessSwipe: Boolean = true,
     volumeSwipe: Boolean = true,
     longPress2x: Boolean = true,
-    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.BOTTOM_LEFT,
+    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.TOP_RIGHT,
+    currentViewMode: ViewMode = ViewMode.FIT,
+    onCycleViewMode: () -> Unit = {},
+    onRotate: () -> Unit = {},
+    onEnterPip: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var overlayState by remember { mutableStateOf(OverlayUiState()) }
@@ -321,6 +327,13 @@ fun PlayerOverlay(
                     onSelectSubtitleTrack = onOpenSubtitleDialog,
                     onDecodeModeClick = onOpenDecodeDialog,
                     onMoreOptions = onOpenMoreOptions
+                )
+                PlayerViewControls(
+                    currentViewMode = currentViewMode,
+                    onCycleViewMode = onCycleViewMode,
+                    onRotate = onRotate,
+                    onEnterPip = onEnterPip,
+                    modifier = Modifier.align(Alignment.BottomEnd)
                 )
             }
         }
