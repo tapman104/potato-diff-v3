@@ -42,7 +42,6 @@ class PlayerViewModel(
     val brightnessSwipe = engine.brightnessSwipe
     val volumeSwipe = engine.volumeSwipe
     val longPress2x = engine.longPress2x
-    val gestureSensitivity = engine.gestureSensitivity
 
     val quickActionsPosition: StateFlow<QuickActionsPosition> =
         engine.quickActionsPosition

@@ -60,9 +60,6 @@ class UserPreferencesRepository(private val context: Context) {
         val LONG_PRESS_2X = booleanPreferencesKey("long_press_2x")
         const val DEFAULT_LONG_PRESS_2X = true
 
-        val GESTURE_SENSITIVITY = stringPreferencesKey("gesture_sensitivity")
-        const val DEFAULT_GESTURE_SENSITIVITY = "normal"
-
         val BACKGROUND_PLAY = stringPreferencesKey("background_play")
         const val DEFAULT_BACKGROUND_PLAY = "off"
 
@@ -128,10 +125,6 @@ class UserPreferencesRepository(private val context: Context) {
 
     val longPress2x: Flow<Boolean> = context.userPrefsDataStore.data.map { prefs ->
         prefs[LONG_PRESS_2X] ?: DEFAULT_LONG_PRESS_2X
-    }
-
-    val gestureSensitivity: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
-        prefs[GESTURE_SENSITIVITY] ?: DEFAULT_GESTURE_SENSITIVITY
     }
 
     val backgroundPlay: Flow<String> = context.userPrefsDataStore.data.map { prefs ->
@@ -232,13 +225,6 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[LONG_PRESS_2X] = enabled
         }
     }
-
-    suspend fun setGestureSensitivity(sensitivity: String) {
-        context.userPrefsDataStore.edit { prefs ->
-            prefs[GESTURE_SENSITIVITY] = sensitivity
-        }
-    }
-
     suspend fun setBackgroundPlay(mode: String) {
         context.userPrefsDataStore.edit { prefs ->
             prefs[BACKGROUND_PLAY] = mode

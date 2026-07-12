@@ -61,10 +61,6 @@ class SettingsViewModel(
 
     val longPress2x = userPreferencesRepository.longPress2x
         .asState(UserPreferencesRepository.DEFAULT_LONG_PRESS_2X)
-
-    val gestureSensitivity = userPreferencesRepository.gestureSensitivity
-        .asState(UserPreferencesRepository.DEFAULT_GESTURE_SENSITIVITY)
-
     val backgroundPlay = userPreferencesRepository.backgroundPlay
         .asState(UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY)
 
@@ -160,13 +156,6 @@ class SettingsViewModel(
             userPreferencesRepository.setLongPress2x(enabled)
         }
     }
-
-    fun setGestureSensitivity(sensitivity: String) {
-        viewModelScope.launch {
-            userPreferencesRepository.setGestureSensitivity(sensitivity)
-        }
-    }
-
     fun setBackgroundPlay(mode: String) {
         viewModelScope.launch {
             userPreferencesRepository.setBackgroundPlay(mode)
