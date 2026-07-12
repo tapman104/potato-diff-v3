@@ -13,7 +13,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
@@ -22,9 +25,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -240,109 +245,135 @@ private fun RefinedSeekBar(
     onDragEnd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val thumbRadiusDp = if (isDragging) 8.dp else 6.dp
-    val thumbRadiusPx = with(androidx.compose.ui.platform.LocalDensity.current) { thumbRadiusDp.toPx() }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val activeDrag = isDragging || isPressed
 
     val animatedTrackHeight by animateDpAsState(
-        targetValue = if (isDragging) 4.5.dp else 3.dp,
+        targetValue = if (activeDrag) 5.dp else 3.dp,
         animationSpec = tween(durationMillis = 140),
         label = "SeekTrackHeight"
     )
-    val animatedGlowAlpha by animateFloatAsState(
-        targetValue = if (isDragging) 1f else 0f,
+    val thumbScale by animateFloatAsState(
+        targetValue = if (activeDrag) 1.35f else 1f,
         animationSpec = tween(durationMillis = 140),
-        label = "SeekThumbGlow"
+        label = "SeekThumbScale"
     )
 
-    val inactiveTrackColor = Color.White.copy(alpha = 0.28f)
-    val bufferTrackColor = Color.White.copy(alpha = 0.52f)
+    val inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+    val bufferTrackColor = Color.White.copy(alpha = 0.48f)
 
-    Canvas(
+    BoxWithConstraints(
         modifier = modifier
-            .pointerInput(enabled, durationMs) {
-                if (!enabled || durationMs <= 0L) return@pointerInput
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val width = size.width.toFloat()
-                    val sidePadding = 8.dp.toPx()
-                    val trackWidth = (width - 2 * sidePadding).coerceAtLeast(1f)
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        val safeMaxWidth = if (maxWidth == androidx.compose.ui.unit.Dp.Unspecified || maxWidth <= 0.dp) 300.dp else maxWidth
+        val sidePadding = 8.dp
+        val trackWidthDp = (safeMaxWidth - sidePadding * 2).coerceAtLeast(0.dp)
+        val safeProgress = progressFraction.coerceIn(0f, 1f)
+        val safeBuffer = bufferFraction.coerceIn(0f, 1f)
 
-                    fun xToMs(x: Float): Long {
-                        val clampedX = (x - sidePadding).coerceIn(0f, trackWidth)
-                        val ratio = (clampedX / trackWidth).toDouble()
-                        return (ratio * durationMs).toLong().coerceIn(0L, durationMs)
-                    }
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(enabled, durationMs) {
+                    if (!enabled || durationMs <= 0L) return@pointerInput
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val width = size.width.toFloat()
+                        val sidePaddingPx = 8.dp.toPx()
+                        val trackWidth = (width - 2 * sidePaddingPx).coerceAtLeast(1f)
 
-                    onDragStart(xToMs(down.position.x))
-                    down.consume()
-
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull() ?: break
-                        if (!change.pressed) {
-                            onDragEnd()
-                            break
+                        fun xToMs(x: Float): Long {
+                            val clampedX = (x - sidePaddingPx).coerceIn(0f, trackWidth)
+                            val ratio = (clampedX / trackWidth).toDouble()
+                            return (ratio * durationMs).toLong().coerceIn(0L, durationMs)
                         }
-                        onDrag(xToMs(change.position.x))
-                        change.consume()
+
+                        onDragStart(xToMs(down.position.x))
+                        down.consume()
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+                            if (!change.pressed) {
+                                onDragEnd()
+                                break
+                            }
+                            onDrag(xToMs(change.position.x))
+                            change.consume()
+                        }
                     }
                 }
-            }
-    ) {
-        val sidePaddingPx = 8.dp.toPx()
-        val trackHeightPx = animatedTrackHeight.toPx()
-        val trackWidthPx = (size.width - 2 * sidePaddingPx).coerceAtLeast(1f)
-        val centerY = size.height / 2f
-        val startX = sidePaddingPx
-        val endX = sidePaddingPx + trackWidthPx
+        ) {
+            val sidePaddingPx = 8.dp.toPx()
+            val trackHeightPx = animatedTrackHeight.toPx()
+            val trackWidthPx = (size.width - 2 * sidePaddingPx).coerceAtLeast(1f)
+            val centerY = size.height / 2f
+            val startX = sidePaddingPx
+            val endX = sidePaddingPx + trackWidthPx
 
-        drawLine(
-            color = inactiveTrackColor,
-            start = Offset(startX, centerY),
-            end = Offset(endX, centerY),
-            strokeWidth = trackHeightPx,
-            cap = StrokeCap.Round
-        )
+            drawLine(
+                color = inactiveTrackColor,
+                start = Offset(startX, centerY),
+                end = Offset(endX, centerY),
+                strokeWidth = trackHeightPx,
+                cap = StrokeCap.Round
+            )
+
+            if (enabled) {
+                val progressEndX = startX + trackWidthPx * safeProgress
+                val bufferEndX = startX + trackWidthPx * safeBuffer
+                if (safeBuffer > safeProgress) {
+                    drawLine(
+                        color = bufferTrackColor,
+                        start = Offset(progressEndX, centerY),
+                        end = Offset(bufferEndX, centerY),
+                        strokeWidth = trackHeightPx,
+                        cap = StrokeCap.Round
+                    )
+                } else if (safeBuffer > 0f) {
+                    drawLine(
+                        color = bufferTrackColor,
+                        start = Offset(startX, centerY),
+                        end = Offset(bufferEndX, centerY),
+                        strokeWidth = trackHeightPx,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                if (safeProgress > 0f) {
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(startX, centerY),
+                        end = Offset(progressEndX, centerY),
+                        strokeWidth = trackHeightPx,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.28f),
+                    radius = 11.dp.toPx() * thumbScale,
+                    center = Offset(progressEndX, centerY)
+                )
+            }
+        }
 
         if (enabled) {
-            val safeBuffer = bufferFraction.coerceIn(0f, 1f)
-            if (safeBuffer > 0f) {
-                val bufferEndX = startX + trackWidthPx * safeBuffer
-                drawLine(
-                    color = bufferTrackColor,
-                    start = Offset(startX, centerY),
-                    end = Offset(bufferEndX, centerY),
-                    strokeWidth = trackHeightPx,
-                    cap = StrokeCap.Round
-                )
-            }
-
-            val safeProgress = progressFraction.coerceIn(0f, 1f)
-            val progressEndX = startX + trackWidthPx * safeProgress
-            if (safeProgress > 0f) {
-                drawLine(
-                    color = Color.White,
-                    start = Offset(startX, centerY),
-                    end = Offset(progressEndX, centerY),
-                    strokeWidth = trackHeightPx,
-                    cap = StrokeCap.Round
-                )
-            }
-
-            val glowAlpha = animatedGlowAlpha
-            if (glowAlpha > 0f) {
-                drawCircle(
-                    color = Color.White,
-                    radius = thumbRadiusPx + sidePaddingPx * glowAlpha,
-                    center = Offset(progressEndX, centerY),
-                    alpha = 0.25f * glowAlpha
-                )
-            }
-
-            drawCircle(
-                color = Color.White,
-                radius = thumbRadiusPx,
-                center = Offset(progressEndX, centerY)
+            val thumbOffsetX = sidePadding + trackWidthDp * safeProgress - 7.dp
+            Box(
+                modifier = Modifier
+                    .offset(x = thumbOffsetX)
+                    .size(14.dp)
+                    .graphicsLayer {
+                        scaleX = thumbScale
+                        scaleY = thumbScale
+                    }
+                    .shadow(elevation = 6.dp, shape = CircleShape, spotColor = Color.White)
+                    .background(Color.White, CircleShape)
             )
         }
     }

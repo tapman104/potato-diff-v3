@@ -52,11 +52,11 @@ fun incrementPatch() {
     println("Version bumped to $major.$minor.$newPatch")
 }
 
-tasks.named("assembleDebug") {
+tasks.matching { it.name == "assembleDebug" }.configureEach {
     doLast { incrementPatch() }
 }
 
-tasks.named("assembleRelease") {
+tasks.matching { it.name == "assembleRelease" }.configureEach {
     doLast { incrementPatch() }
 }
 dependencies {

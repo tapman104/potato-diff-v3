@@ -3,6 +3,7 @@ package com.tapman104.mpvplayer.player.playback
 import android.content.Context
 import android.media.AudioManager
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import mpv.potato.tapman104.player.controls.PlayerBottomControls
@@ -176,6 +178,41 @@ fun PlayerOverlay(
             gestureSensitivity = gestureSensitivity
         )
 
+        // ── GRADIENT SCRIMS ──────────────────────────────────────────────────
+        val scrimAlpha by animateFloatAsState(
+            targetValue = if (controlsVisible) 1f else 0f,
+            animationSpec = tween(200),
+            label = "ScrimAlpha"
+        )
+
+        // Top scrim
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .align(Alignment.TopCenter)
+                .graphicsLayer { alpha = scrimAlpha }
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(alpha = 0.65f), Color.Transparent)
+                    )
+                )
+        )
+
+        // Bottom scrim
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .align(Alignment.BottomCenter)
+                .graphicsLayer { alpha = scrimAlpha }
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))
+                    )
+                )
+        )
+
         // ── TOP BAR ──────────────────────────────────────────────────────────
         AnimatedVisibility(
             visible = controlsVisible,
@@ -186,15 +223,6 @@ fun PlayerOverlay(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.72f),
-                                Color.Black.copy(alpha = 0.30f),
-                                Color.Transparent,
-                            )
-                        )
-                    )
             ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     PlayerTopBar(
@@ -247,15 +275,6 @@ fun PlayerOverlay(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.45f),
-                                Color.Black.copy(alpha = 0.82f),
-                            )
-                        )
-                    )
             ) {
                 PlayerBottomControls(
                     isPlaying = playerState.isPlaying,

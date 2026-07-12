@@ -2,6 +2,7 @@ package mpv.potato.tapman104.player.controls
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Audiotrack
 import androidx.compose.material.icons.outlined.ClosedCaption
@@ -86,7 +87,7 @@ fun PlayerQuickActions(
                 borderColor = Color.White.copy(alpha = 0.35f),
                 borderWidth = 1.dp,
             ),
-            shape = MaterialTheme.shapes.small,
+            shape = CircleShape,
         )
 
         OutlinedIconButton(
