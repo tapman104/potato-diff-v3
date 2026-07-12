@@ -32,7 +32,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "MpvPlayer",
+                text = "Potato Player",
                 color = Color.White,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold

@@ -1,5 +1,6 @@
 package com.tapman104.mpvplayer.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -98,6 +99,14 @@ fun SettingsScreen(
     val backgroundPlay by viewModel.backgroundPlay.collectAsStateWithLifecycle()
 
     var currentSection by remember { mutableStateOf<SettingsNavSection?>(null) }
+
+    BackHandler {
+        if (currentSection != null) {
+            currentSection = null
+        } else {
+            onBack()
+        }
+    }
 
     when (currentSection) {
         null -> {

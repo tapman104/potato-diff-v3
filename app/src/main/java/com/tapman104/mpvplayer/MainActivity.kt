@@ -6,6 +6,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
@@ -37,20 +44,48 @@ class MainActivity : ComponentActivity() {
             MpvPlayerTheme {
                 var showSettings by remember { mutableStateOf(false) }
 
-                HomeScreen(
-                    onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
-                    onSettingsClick = { showSettings = true }
-                )
+                val transition = updateTransition(targetState = showSettings, label = "nav")
 
-                if (showSettings) {
-                    val context = LocalContext.current
-                    val settingsViewModel: SettingsViewModel = viewModel(
-                        factory = SettingsViewModelFactory(UserPreferencesRepository(context.applicationContext))
-                    )
-                    SettingsScreen(
-                        viewModel = settingsViewModel,
-                        onBack = { showSettings = false }
-                    )
+                transition.AnimatedContent(
+                    transitionSpec = {
+                        if (targetState) {
+                            // Navigating to Settings: slide in from right
+                            slideInHorizontally(
+                                initialOffsetX = { it },
+                                animationSpec = tween(300, easing = EaseOutCubic)
+                            ) togetherWith slideOutHorizontally(
+                                targetOffsetX = { -it / 4 },
+                                animationSpec = tween(300, easing = EaseOutCubic)
+                            )
+                        } else {
+                            // Back from Settings: slide in from left
+                            slideInHorizontally(
+                                initialOffsetX = { -it / 4 },
+                                animationSpec = tween(300, easing = EaseOutCubic)
+                            ) togetherWith slideOutHorizontally(
+                                targetOffsetX = { it },
+                                animationSpec = tween(300, easing = EaseOutCubic)
+                            )
+                        }
+                    }
+                ) { isSettings ->
+                    if (isSettings) {
+                        val context = LocalContext.current
+                        val settingsViewModel: SettingsViewModel = viewModel(
+                            factory = SettingsViewModelFactory(
+                                UserPreferencesRepository(context.applicationContext)
+                            )
+                        )
+                        SettingsScreen(
+                            viewModel = settingsViewModel,
+                            onBack = { showSettings = false }
+                        )
+                    } else {
+                        HomeScreen(
+                            onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
+                            onSettingsClick = { showSettings = true }
+                        )
+                    }
                 }
             }
         }
