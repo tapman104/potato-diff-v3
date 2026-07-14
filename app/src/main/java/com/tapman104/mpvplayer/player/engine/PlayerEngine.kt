@@ -14,34 +14,31 @@ import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PlaylistState
 import com.tapman104.mpvplayer.player.state.PositionState
 import com.tapman104.mpvplayer.player.state.SubtitleAppearanceState
+import com.tapman104.mpvplayer.player.viewmodel.PlaybackCoordinator
 import com.tapman104.mpvplayer.player.viewmodel.PlaylistManager
 import com.tapman104.mpvplayer.player.viewmodel.ResumePositionManager
 import com.tapman104.mpvplayer.player.viewmodel.SubtitleController
-import com.tapman104.mpvplayer.util.UriResolver
+import com.tapman104.mpvplayer.player.viewmodel.TrackCoordinator
 import `is`.xyz.mpv.MPVLib
-import `is`.xyz.mpv.Utils
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
-import java.io.File
 
 /**
- * PlayerEngine — the single orchestrator for all playback business logic.
+ * PlayerEngine — top-level orchestrator that wires coordinators, managers, and the
+ * preference-watching coroutines together, then exposes a single [dispatch] entry point.
  *
- * Owns [PlayerState] and [PositionState], wires the preference-watching coroutines,
- * registers the [EventProcessor] with the dispatcher, and exposes a single
- * [dispatch] entry point for every [PlayerAction].
+ * Playback commands are now delegated to [PlaybackCoordinator] (play/pause/seek/volume/
+ * speed/aspect/zoom) and [TrackCoordinator] (audio tracks, subtitle tracks, decode mode).
  *
  * Pipeline:
- *   UI → dispatch(PlayerAction) → PlayerEngine → MpvController → MPV
- *                                                      ↓
- *                                              EventProcessor → StateFlow → Compose
+ *   UI → dispatch(PlayerAction) → PlayerEngine → Coordinator → MpvController → MPV
+ *                                                                    ↓
+ *                                                            EventProcessor → StateFlow → Compose
  */
 class PlayerEngine(
     private val application: Application,
@@ -86,22 +83,28 @@ class PlayerEngine(
     val longPress2x = preferencesRepository.longPress2x
     val quickActionsPosition = preferencesRepository.quickActionsPosition
 
-    // ── Speed override tracking ───────────────────────────────────────────────
+    // ── Coordinators ──────────────────────────────────────────────────────────
 
-    private var preOverrideSpeed: Float = 1f
-    private var isSpeedOverridden: Boolean = false
+    private val playbackCoordinator = PlaybackCoordinator(
+        application = application,
+        controller = controller,
+        eventProcessor = eventProcessor,
+        sharedPlayerState = _playerState,
+    )
 
-    // ── Last seek timestamp (for coalesced relative seeks) ───────────────────
-
-    private var lastSeekTime = 0L
+    private val trackCoordinator = TrackCoordinator(
+        application = application,
+        controller = controller,
+        sharedPlayerState = _playerState,
+        preferencesRepository = preferencesRepository,
+        scope = scope,
+    )
 
     // ─────────────────────────────────────────────────────────────────────────
     // init
     // ─────────────────────────────────────────────────────────────────────────
 
     init {
-        // Wire the EventProcessor to the MutableStateFlows owned by this engine.
-        // EventProcessor is constructed externally with these same references.
         resumePositionManager.attach(scope) { _positionState.value.durationMs }
 
         controller.dispatcher.addListener(eventProcessor)
@@ -169,175 +172,56 @@ class PlayerEngine(
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Routes a [PlayerAction] to the correct internal handler.
+     * Routes a [PlayerAction] to the appropriate coordinator or manager.
      * This is the single entry point for all UI-driven playback commands.
      */
     fun dispatch(action: PlayerAction) {
         when (action) {
-            // Playback
-            PlayerAction.Play -> controller.executor.play()
-            PlayerAction.Pause -> controller.executor.pause()
-            PlayerAction.TogglePlay -> controller.executor.togglePlay()
-            PlayerAction.PausePlayback -> pausePlayback()
+            // Playback — delegated to PlaybackCoordinator
+            PlayerAction.Play                          -> playbackCoordinator.play()
+            PlayerAction.Pause                         -> playbackCoordinator.pause()
+            PlayerAction.TogglePlay                    -> playbackCoordinator.togglePlay()
+            PlayerAction.PausePlayback                 -> playbackCoordinator.pausePlayback()
 
-            // Seeking
-            is PlayerAction.SeekRelative -> seekRelative(action.offsetMs)
-            is PlayerAction.SeekGestureDrag -> seekGestureDrag(action.positionMs)
-            is PlayerAction.SeekCommit -> seekCommit(action.positionMs)
+            // Seeking — delegated to PlaybackCoordinator
+            is PlayerAction.SeekRelative               -> playbackCoordinator.seekRelative(action.offsetMs)
+            is PlayerAction.SeekGestureDrag            -> playbackCoordinator.seekGestureDrag(action.positionMs)
+            is PlayerAction.SeekCommit                 -> playbackCoordinator.seekCommit(action.positionMs)
 
-            // Volume / Speed
-            is PlayerAction.SetVolume -> setVolume(action.volume)
-            is PlayerAction.SetSpeed -> setSpeed(action.speed)
-            is PlayerAction.SetPlaybackSpeedRamped -> setPlaybackSpeedRamped(action.targetSpeed)
-            PlayerAction.RestorePlaybackSpeed -> restorePlaybackSpeed()
+            // Volume / Speed — delegated to PlaybackCoordinator
+            is PlayerAction.SetVolume                  -> playbackCoordinator.setVolume(action.volume)
+            is PlayerAction.SetSpeed                   -> playbackCoordinator.setSpeed(action.speed)
+            is PlayerAction.SetPlaybackSpeedRamped     -> playbackCoordinator.setPlaybackSpeedRamped(action.targetSpeed)
+            PlayerAction.RestorePlaybackSpeed          -> playbackCoordinator.restorePlaybackSpeed()
 
-            // Audio tracks
-            is PlayerAction.SetAudioTrack -> setAudioTrack(action.id)
-            is PlayerAction.AddAudioTrack -> addAudioTrack(action.uri)
+            // Video geometry — delegated to PlaybackCoordinator
+            is PlayerAction.SetAspectRatio             -> playbackCoordinator.setAspectRatio(action.mode)
+            is PlayerAction.SetZoomAndPan              -> playbackCoordinator.setZoomAndPan(action.zoomLog2, action.panX, action.panY)
 
-            // Subtitle tracks
-            is PlayerAction.SetSubtitleTrack -> setSubtitleTrack(action.id)
-            is PlayerAction.AddSubtitle -> addSubtitle(action.uri)
+            // Audio tracks — delegated to TrackCoordinator
+            is PlayerAction.SetAudioTrack              -> trackCoordinator.setAudioTrack(action.id)
+            is PlayerAction.AddAudioTrack              -> trackCoordinator.addAudioTrack(action.uri)
 
-            // Video settings
-            is PlayerAction.SetDecodeMode -> cycleDecodeMode(action.mode, resumeAfter = true)
-            is PlayerAction.SetAspectRatio -> setAspectRatio(action.mode)
-            is PlayerAction.SetZoomAndPan -> setZoomAndPan(action.zoomLog2, action.panX, action.panY)
+            // Subtitle tracks — delegated to TrackCoordinator
+            is PlayerAction.SetSubtitleTrack           -> trackCoordinator.setSubtitleTrack(action.id)
+            is PlayerAction.AddSubtitle                -> trackCoordinator.addSubtitle(action.uri)
 
-            // Playlist
-            is PlayerAction.LoadAndPlay -> loadAndPlay(action.uri)
-            is PlayerAction.SetPlaylist -> playlistManager.setPlaylist(action.uris)
-            is PlayerAction.AddToPlaylist -> playlistManager.addToPlaylist(action.uri)
-            PlayerAction.PlayNext -> playlistManager.playNext()
-            PlayerAction.PlayPrevious -> playlistManager.playPrevious()
-            is PlayerAction.PlayAt -> playlistManager.playAt(action.index)
+            // Decode mode — delegated to TrackCoordinator
+            is PlayerAction.SetDecodeMode              -> trackCoordinator.cycleDecodeMode(action.mode, resumeAfter = true)
+
+            // Playlist — delegated to PlaylistManager
+            is PlayerAction.LoadAndPlay                -> loadAndPlay(action.uri)
+            is PlayerAction.SetPlaylist                -> playlistManager.setPlaylist(action.uris)
+            is PlayerAction.AddToPlaylist              -> playlistManager.addToPlaylist(action.uri)
+            PlayerAction.PlayNext                      -> playlistManager.playNext()
+            PlayerAction.PlayPrevious                  -> playlistManager.playPrevious()
+            is PlayerAction.PlayAt                     -> playlistManager.playAt(action.index)
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Internal handlers
+    // Internal handlers (playlist / surface — not covered by coordinators)
     // ─────────────────────────────────────────────────────────────────────────
-
-    private fun seekRelative(offsetMs: Long) {
-        lastSeekTime = System.currentTimeMillis()
-        controller.executor.seekRelativeCoalesced(offsetMs / 1000.0)
-    }
-
-    private fun seekGestureDrag(positionMs: Long) {
-        eventProcessor.isSliderSeeking = true
-        lastSeekTime = System.currentTimeMillis()
-        controller.executor.seekGesture(positionMs / 1000.0)
-    }
-
-    private fun seekCommit(positionMs: Long) {
-        eventProcessor.isSliderSeeking = false
-        lastSeekTime = 0L
-        eventProcessor.lastTimePosUpdate = 0L
-        controller.executor.seekCommit(positionMs / 1000.0)
-    }
-
-    private fun setVolume(volume: Int) {
-        val volInt = volume.coerceIn(0, 130)
-        val audioManager = application.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
-        audioManager?.let { am ->
-            val maxMusicVol = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-            val targetStreamVol = ((volInt.coerceIn(0, 100) / 100f) * maxMusicVol).roundToInt().coerceIn(0, maxMusicVol)
-            try {
-                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetStreamVol, 0)
-            } catch (_: Exception) {}
-        }
-        val mpvVol = if (volInt <= 100) 100 else volInt
-        controller.executor.setVolume(mpvVol)
-        _playerState.update { it.copy(volume = volInt) }
-    }
-
-    private fun setSpeed(speed: Float) = controller.executor.setSpeed(speed.toDouble())
-
-    private fun setPlaybackSpeedRamped(targetSpeed: Float) {
-        if (!isSpeedOverridden) {
-            preOverrideSpeed = _playerState.value.speed
-            isSpeedOverridden = true
-        }
-        setSpeed(targetSpeed)
-    }
-
-    private fun restorePlaybackSpeed() {
-        if (isSpeedOverridden) {
-            setSpeed(preOverrideSpeed)
-            isSpeedOverridden = false
-        }
-    }
-
-    private fun setAudioTrack(id: Int) {
-        if (_playerState.value.currentAudioTrackId == id) return
-        controller.executor.setAudioTrack(id)
-        _playerState.update { it.copy(currentAudioTrackId = id) }
-    }
-
-    private fun addAudioTrack(uri: Uri) {
-        scope.launch(Dispatchers.IO) {
-            val path = resolveTrackPath(uri) ?: return@launch
-            controller.executor.addAudioTrack(path)
-        }
-    }
-
-    private fun setSubtitleTrack(id: Int) {
-        if (_playerState.value.currentSubtitleTrackId == id) return
-        controller.executor.setSubtitleTrack(id)
-        _playerState.update { it.copy(currentSubtitleTrackId = id) }
-    }
-
-    private fun addSubtitle(uri: Uri) {
-        scope.launch(Dispatchers.IO) {
-            val path = resolveTrackPath(uri) ?: return@launch
-            controller.executor.addSubtitle(path)
-        }
-    }
-
-    private fun cycleDecodeMode(next: DecodeMode, resumeAfter: Boolean = false) {
-        val mpvMode = when (next) {
-            DecodeMode.HW     -> "mediacodec"
-            DecodeMode.HWPlus -> "mediacodec-copy"
-            DecodeMode.SW     -> "no"
-        }
-        controller.executor.setHwdec(mpvMode)
-        if (resumeAfter) controller.executor.play()
-        scope.launch {
-            preferencesRepository.setDecodeMode(mpvMode)
-        }
-    }
-
-    private fun setAspectRatio(mode: AspectRatioMode) {
-        if (_playerState.value.aspectRatioMode == mode) return
-        _playerState.update { it.copy(aspectRatioMode = mode) }
-        when (mode) {
-            AspectRatioMode.DEFAULT,
-            AspectRatioMode.FIT -> controller.executor.execute {
-                MPVLib.setPropertyString("video-aspect-override", "no")
-                MPVLib.setPropertyString("video-aspect-mode", "container")
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-unscaled", "no")
-            }
-            AspectRatioMode.CROP -> controller.executor.execute {
-                MPVLib.setPropertyString("video-aspect-override", "no")
-                MPVLib.setPropertyString("video-aspect-mode", "container")
-                MPVLib.setPropertyDouble("panscan", 1.0)
-                MPVLib.setPropertyString("video-unscaled", "no")
-            }
-            AspectRatioMode.STRETCH -> controller.executor.execute {
-                MPVLib.setPropertyString("video-aspect-override", "no")
-                MPVLib.setPropertyString("video-aspect-mode", "none")
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-unscaled", "no")
-            }
-        }
-    }
-
-    private fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
-        controller.executor.setVideoZoom(zoomLog2)
-        controller.executor.setVideoPan(panX, panY)
-        _playerState.update { it.copy(videoZoom = zoomLog2, videoPanX = panX, videoPanY = panY) }
-    }
 
     private fun loadAndPlay(uri: Uri) {
         _playerState.update { it.copy(isLoading = true, error = null, hasError = false) }
@@ -346,35 +230,6 @@ class PlayerEngine(
 
     private fun onSurfaceReady() {
         playlistManager.onSurfaceReady()
-    }
-
-    /** Pauses playback unconditionally — idempotent if already paused. */
-    private fun pausePlayback() {
-        if (_playerState.value.isPaused) return
-        controller.executor.pause()
-        _playerState.update { it.copy(isPaused = true) }
-    }
-
-    private suspend fun resolveTrackPath(uri: Uri): String? {
-        if (uri.scheme != "content") {
-            return uri.path ?: uri.toString()
-        }
-        val fd = application.contentResolver.openFileDescriptor(uri, "r") ?: return null
-        val realPath = Utils.findRealPath(fd.fd)
-        fd.close()
-
-        return realPath ?: run {
-            // Fallback: copy to cache
-            val ext = UriResolver.getDisplayName(application, uri).substringAfterLast('.', "tmp")
-            val cache = File(application.cacheDir, "ext_track_${System.currentTimeMillis()}.$ext")
-            val copied = application.contentResolver.openInputStream(uri)?.use { input ->
-                cache.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            } != null
-            if (!copied) return null
-            cache.absolutePath
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

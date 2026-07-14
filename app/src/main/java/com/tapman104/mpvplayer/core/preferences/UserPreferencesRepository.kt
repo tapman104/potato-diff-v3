@@ -9,7 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import mpv.potato.tapman104.player.model.QuickActionsPosition
+import com.tapman104.mpvplayer.player.model.QuickActionsPosition
 
 private val Context.userPrefsDataStore by preferencesDataStore(name = "user_prefs")
 

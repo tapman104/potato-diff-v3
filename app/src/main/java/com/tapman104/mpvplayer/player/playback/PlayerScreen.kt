@@ -11,9 +11,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import com.tapman104.mpvplayer.player.model.DecodeMode
-import mpv.potato.tapman104.player.model.QuickActionsPosition
-import mpv.potato.tapman104.player.model.ViewMode
-import mpv.potato.tapman104.ui.theme.PlayerTheme
+import com.tapman104.mpvplayer.player.model.QuickActionsPosition
+import com.tapman104.mpvplayer.player.model.ViewMode
+import com.tapman104.mpvplayer.player.gesture.GestureIntent
 
 @Composable
 fun PlayerScreen(
@@ -23,14 +23,7 @@ fun PlayerScreen(
     onTogglePlay: () -> Unit,
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
-    onSeekForward: (Long) -> Unit = {},
-    onSeekBackward: (Long) -> Unit = {},
-    onSeekGestureDrag: (Long) -> Unit = {},
-    onSeekCommit: (Long) -> Unit = {},
-    onSpeedOverride: (Float) -> Unit = {},
-    onSpeedRestore: () -> Unit = {},
-    onZoomChange: (Float) -> Unit = {},
-    onVolumeChange: (Int) -> Unit = {},
+    onGestureIntent: (GestureIntent) -> Unit = {},
     onOpenFile: () -> Unit,
     onBack: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -74,48 +67,39 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        PlayerTheme {
-            PlayerOverlay(
-                fileName = fileName,
-                playerState = playerState,
-                positionState = positionState,
-                onSeekForward = onSeekForward,
-                onSeekBackward = onSeekBackward,
-                onSeekGestureDrag = onSeekGestureDrag,
-                onSeekCommit = onSeekCommit,
-                onSpeedOverride = onSpeedOverride,
-                onSpeedRestore = onSpeedRestore,
-                onZoomChange = onZoomChange,
-                onVolumeChange = onVolumeChange,
-                onOpenFile = onOpenFile,
-                onBack = onBack,
-                onOpenSettings = onOpenSettings,
-                initialBrightness = initialBrightness,
-                onBrightnessChange = onBrightnessChange,
-                onTogglePlay = onTogglePlay,
-                onAudioTrackSelected = onAudioTrackSelected,
-                onAddAudioClick = onAddAudioClick,
-                onSubtitleTrackSelected = onSubtitleTrackSelected,
-                onDisableSubtitles = onDisableSubtitles,
-                onAddSubtitleClick = onAddSubtitleClick,
-                onCycleDecodeMode = onCycleDecodeMode,
-                onPause = onPause,
-                onPlay = onPlay,
-                onSubtitleSizeChange = onSubtitleSizeChange,
-                onSubtitlePositionChange = onSubtitlePositionChange,
-                onSubtitleAppearanceReset = onSubtitleAppearanceReset,
-                doubleTapSeekSeconds = doubleTapSeekSeconds,
-                swipeToSeek = swipeToSeek,
-                brightnessSwipe = brightnessSwipe,
-                volumeSwipe = volumeSwipe,
-                longPress2x = longPress2x,
-                quickActionsPosition = quickActionsPosition,
-                currentViewMode = currentViewMode,
-                onCycleViewMode = onCycleViewMode,
-                onRotate = onRotate,
-                onEnterPip = onEnterPip,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+        PlayerOverlay(
+            fileName = fileName,
+            playerState = playerState,
+            positionState = positionState,
+            onGestureIntent = onGestureIntent,
+            onOpenFile = onOpenFile,
+            onBack = onBack,
+            onOpenSettings = onOpenSettings,
+            initialBrightness = initialBrightness,
+            onBrightnessChange = onBrightnessChange,
+            onTogglePlay = onTogglePlay,
+            onAudioTrackSelected = onAudioTrackSelected,
+            onAddAudioClick = onAddAudioClick,
+            onSubtitleTrackSelected = onSubtitleTrackSelected,
+            onDisableSubtitles = onDisableSubtitles,
+            onAddSubtitleClick = onAddSubtitleClick,
+            onCycleDecodeMode = onCycleDecodeMode,
+            onPause = onPause,
+            onPlay = onPlay,
+            onSubtitleSizeChange = onSubtitleSizeChange,
+            onSubtitlePositionChange = onSubtitlePositionChange,
+            onSubtitleAppearanceReset = onSubtitleAppearanceReset,
+            doubleTapSeekSeconds = doubleTapSeekSeconds,
+            swipeToSeek = swipeToSeek,
+            brightnessSwipe = brightnessSwipe,
+            volumeSwipe = volumeSwipe,
+            longPress2x = longPress2x,
+            quickActionsPosition = quickActionsPosition,
+            currentViewMode = currentViewMode,
+            onCycleViewMode = onCycleViewMode,
+            onRotate = onRotate,
+            onEnterPip = onEnterPip,
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }

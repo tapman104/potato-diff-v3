@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import mpv.potato.tapman104.player.model.QuickActionsPosition
+import com.tapman104.mpvplayer.player.model.QuickActionsPosition
 
 class SettingsViewModel(
     private val userPreferencesRepository: UserPreferencesRepository

@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.roundToInt
-import mpv.potato.tapman104.player.model.QuickActionsPosition
+import com.tapman104.mpvplayer.player.model.QuickActionsPosition
 
 private object SettingsColors {
     val Background     = Color(0xFF0D0D0D)

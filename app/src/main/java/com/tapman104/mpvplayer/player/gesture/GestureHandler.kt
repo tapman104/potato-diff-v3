@@ -38,20 +38,12 @@ fun GestureHandler(
     durationMs: () -> Long,
     isPlaying: Boolean,
     currentSpeed: () -> Float = { 1.0f },
-    onSeekGestureDrag: (Long) -> Unit = {},
-    onSeekCommit: (Long) -> Unit = {},
-    onSeekForward: (Long) -> Unit = {},
-    onSeekBackward: (Long) -> Unit = {},
+    onIntent: (GestureIntent) -> Unit = {},
     onToggleControls: () -> Unit,
-    onSpeedOverride: (Float) -> Unit,
-    onSpeedRestore: () -> Unit,
     modifier: Modifier = Modifier,
     currentZoom: Float = 0f,
-    onZoomChange: (Float) -> Unit = {},
     initialBrightness: Float = -1f,
-    onBrightnessChange: (Float) -> Unit = {},
     volumePercentage: Int = 0,
-    onVolumeChange: (Int) -> Unit = {},
     onSeekPreviewMs: (Long) -> Unit = {},
     doubleTapSeekSeconds: Int = 10,
     swipeToSeek: Boolean = true,
@@ -105,15 +97,7 @@ fun GestureHandler(
     val currentSpeedRef = rememberUpdatedState(currentSpeed)
     val screenWidthPxRef = rememberUpdatedState(screenWidthPx)
     val screenHeightPxRef = rememberUpdatedState(screenHeightPx)
-    val onSeekGestureDragRef = rememberUpdatedState(onSeekGestureDrag)
-    val onSeekCommitRef = rememberUpdatedState(onSeekCommit)
-    val onSeekForwardRef = rememberUpdatedState(onSeekForward)
-    val onSeekBackwardRef = rememberUpdatedState(onSeekBackward)
-    val onSpeedOverrideRef = rememberUpdatedState(onSpeedOverride)
-    val onSpeedRestoreRef = rememberUpdatedState(onSpeedRestore)
-    val onZoomChangeRef = rememberUpdatedState(onZoomChange)
-    val onBrightnessChangeRef = rememberUpdatedState(onBrightnessChange)
-    val onVolumeChangeRef = rememberUpdatedState(onVolumeChange)
+    val onIntentRef = rememberUpdatedState(onIntent)
     val onSeekPreviewMsRef = rememberUpdatedState(onSeekPreviewMs)
     val onToggleControlsRef = rememberUpdatedState(onToggleControls)
 
@@ -139,17 +123,17 @@ fun GestureHandler(
             override fun pause() {}
             override fun unpause() {}
 
-            override fun seekForward(offsetMs: Long) = onSeekForwardRef.value(offsetMs)
-            override fun seekBackward(offsetMs: Long) = onSeekBackwardRef.value(offsetMs)
-            override fun seekGestureDrag(positionMs: Long) = onSeekGestureDragRef.value(positionMs)
-            override fun seekCommit(positionMs: Long) = onSeekCommitRef.value(positionMs)
+            override fun seekForward(offsetMs: Long) = onIntentRef.value(GestureIntent.Seek(offsetMs))
+            override fun seekBackward(offsetMs: Long) = onIntentRef.value(GestureIntent.Seek(-offsetMs))
+            override fun seekGestureDrag(positionMs: Long) = onIntentRef.value(GestureIntent.SeekGestureDrag(positionMs))
+            override fun seekCommit(positionMs: Long) = onIntentRef.value(GestureIntent.SeekCommit(positionMs))
 
             override fun setPlaybackSpeedRamped(targetSpeed: Float, stepCount: Int, stepDurationMs: Long) {
-                onSpeedOverrideRef.value(targetSpeed)
+                onIntentRef.value(GestureIntent.SetSpeed(targetSpeed))
             }
 
             override fun restorePlaybackSpeed() {
-                onSpeedRestoreRef.value()
+                onIntentRef.value(GestureIntent.RestoreSpeed(1.0f))
             }
 
             override fun setVolume(volume: Float) {
@@ -162,21 +146,21 @@ fun GestureHandler(
                 }
                 val pct = localVolumePercent.roundToInt()
                 volumeOverlayPct = pct
-                onVolumeChangeRef.value(pct)
+                onIntentRef.value(GestureIntent.VolumeChange(pct.toFloat()))
             }
 
             override fun setBrightness(brightness: Float) {
                 localBrightness = brightness.coerceIn(0f, 1f)
                 val pct = (localBrightness * 100).roundToInt()
                 brightnessOverlayPct = pct
-                onBrightnessChangeRef.value(localBrightness)
+                onIntentRef.value(GestureIntent.BrightnessChange(localBrightness))
             }
 
             override fun setZoomAndPan(zoomLog2: Float, panX: Float, panY: Float) {
                 localZoomLog2 = zoomLog2
                 localPanX = panX
                 localPanY = panY
-                onZoomChangeRef.value(zoomLog2)
+                onIntentRef.value(GestureIntent.ZoomChange(zoomLog2, panX, panY))
             }
 
             override fun showDoubleTapSeekOverlay(seekAmountSec: Int, isForward: Boolean, label: String) {

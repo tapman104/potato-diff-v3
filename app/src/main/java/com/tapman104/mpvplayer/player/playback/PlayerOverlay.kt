@@ -21,12 +21,12 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import mpv.potato.tapman104.player.controls.PlayerBottomControls
-import mpv.potato.tapman104.player.controls.PlayerQuickActions
-import mpv.potato.tapman104.player.controls.PlayerTopBar
-import mpv.potato.tapman104.player.controls.PlayerViewControls
-import mpv.potato.tapman104.player.model.QuickActionsPosition
-import mpv.potato.tapman104.player.model.ViewMode
+import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
+import com.tapman104.mpvplayer.player.controls.PlayerQuickActions
+import com.tapman104.mpvplayer.player.controls.PlayerTopBar
+import com.tapman104.mpvplayer.player.controls.PlayerViewControls
+import com.tapman104.mpvplayer.player.model.QuickActionsPosition
+import com.tapman104.mpvplayer.player.model.ViewMode
 import com.tapman104.mpvplayer.player.dialog.DecodeModePicker
 import com.tapman104.mpvplayer.player.dialog.SubtitleAppearanceDialog
 import com.tapman104.mpvplayer.player.dialogs.AudioTrackDialog
@@ -34,7 +34,9 @@ import com.tapman104.mpvplayer.player.dialogs.MoreOptionsSheet
 import com.tapman104.mpvplayer.player.dialogs.SubtitleTrackDialog
 import com.tapman104.mpvplayer.player.gesture.BrightnessIndicator
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
+import com.tapman104.mpvplayer.player.gesture.GestureIntent
 import com.tapman104.mpvplayer.player.model.DecodeMode
+import kotlin.math.roundToInt
 import com.tapman104.mpvplayer.player.model.FileInfo
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
@@ -69,14 +71,7 @@ fun PlayerOverlay(
     onOpenSettings: () -> Unit = {},
     initialBrightness: Float = -1f,
     onBrightnessChange: (Float) -> Unit = {},
-    onSeekForward: (Long) -> Unit = {},
-    onSeekBackward: (Long) -> Unit = {},
-    onSeekGestureDrag: (Long) -> Unit = {},
-    onSeekCommit: (Long) -> Unit = {},
-    onSpeedOverride: (Float) -> Unit = {},
-    onSpeedRestore: () -> Unit = {},
-    onZoomChange: (Float) -> Unit = {},
-    onVolumeChange: (Int) -> Unit = {},
+    onGestureIntent: (GestureIntent) -> Unit = {},
     onTogglePlay: () -> Unit,
     onAudioTrackSelected: (Int) -> Unit,
     onAddAudioClick: () -> Unit,
@@ -133,10 +128,30 @@ fun PlayerOverlay(
     val durationMs = rememberUpdatedState(positionState.durationMs)
     val currentSpeed = rememberUpdatedState(playerState.speed)
     val onSeekPreviewMs = remember { { ms: Long -> gestureSeekPreviewMs = ms } }
-    val onSeekCommitAction = remember(onSeekCommit) {
+    val onGestureIntentAction = remember(onGestureIntent) {
+        { intent: GestureIntent ->
+            when (intent) {
+                is GestureIntent.SeekCommit -> {
+                    gestureSeekPreviewMs = -1L
+                    onGestureIntent(intent)
+                }
+                is GestureIntent.VolumeChange -> {
+                    volumePercentage = intent.delta.roundToInt()
+                    onGestureIntent(intent)
+                }
+                else -> onGestureIntent(intent)
+            }
+        }
+    }
+    val onSeekCommitAction = remember(onGestureIntent) {
         { posMs: Long ->
             gestureSeekPreviewMs = -1L
-            onSeekCommit(posMs)
+            onGestureIntent(GestureIntent.SeekCommit(posMs))
+        }
+    }
+    val onSeekGestureDragAction = remember(onGestureIntent) {
+        { posMs: Long ->
+            onGestureIntent(GestureIntent.SeekGestureDrag(posMs))
         }
     }
     val onToggleControls = remember {
@@ -160,12 +175,6 @@ fun PlayerOverlay(
     val onGestureActiveChange = remember {
         { active: Boolean ->
             overlayState = overlayState.copy(isGestureActive = active)
-        }
-    }
-    val onVolumeChangeAction = remember(onVolumeChange) {
-        { vol: Int ->
-            volumePercentage = vol
-            onVolumeChange(vol)
         }
     }
 
@@ -193,21 +202,13 @@ fun PlayerOverlay(
             durationMs = { durationMs.value },
             isPlaying = !playerState.isPaused,
             currentSpeed = { currentSpeed.value },
-            onSeekPreviewMs = onSeekPreviewMs,
-            onSeekGestureDrag = onSeekGestureDrag,
-            onSeekCommit = onSeekCommitAction,
-            onSeekForward = onSeekForward,
-            onSeekBackward = onSeekBackward,
+            onIntent = onGestureIntentAction,
             onToggleControls = onToggleControls,
-            onSpeedOverride = onSpeedOverride,
-            onSpeedRestore = onSpeedRestore,
             modifier = Modifier.fillMaxSize(),
-            initialBrightness = initialBrightness,
-            onBrightnessChange = onBrightnessChange,
-            volumePercentage = volumePercentage,
-            onVolumeChange = onVolumeChangeAction,
             currentZoom = playerState.videoZoom,
-            onZoomChange = onZoomChange,
+            initialBrightness = initialBrightness,
+            volumePercentage = volumePercentage,
+            onSeekPreviewMs = onSeekPreviewMs,
             doubleTapSeekSeconds = doubleTapSeekSeconds,
             swipeToSeek = swipeToSeek,
             brightnessSwipe = brightnessSwipe,
@@ -328,7 +329,7 @@ fun PlayerOverlay(
                 showQuickActions = quickActionsPosition == QuickActionsPosition.BOTTOM_LEFT,
                 onTogglePlay = onTogglePlay,
                 onSeek = onSeekCommitAction,
-                onSeekGesture = onSeekGestureDrag,
+                onSeekGesture = onSeekGestureDragAction,
                 onSeekPreviewMs = onSeekPreviewMs,
                 onSelectAudioTrack = onOpenAudioDialog,
                 onSelectSubtitleTrack = onOpenSubtitleDialog,
@@ -464,7 +465,7 @@ fun PlayerOverlay(
                 playbackSpeed = playerState.playbackSpeed.toFloat(),
                 fileInfo = fileInfo,
                 onSpeedChange = { speed ->
-                    onSpeedOverride(speed)
+                    onGestureIntent(GestureIntent.SetSpeed(speed))
                 },
                 onOpenSettings = onOpenSettingsAction,
                 onDismiss = onDismissDialog

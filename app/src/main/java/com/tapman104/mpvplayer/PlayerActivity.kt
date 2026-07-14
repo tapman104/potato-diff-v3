@@ -1,20 +1,17 @@
 package com.tapman104.mpvplayer
 
 import android.app.PictureInPictureParams
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import kotlin.math.roundToInt
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,20 +21,34 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tapman104.mpvplayer.core.engine.MpvController
+import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
+import com.tapman104.mpvplayer.player.engine.PlayerAction
+import com.tapman104.mpvplayer.player.gesture.GestureIntent
+import com.tapman104.mpvplayer.player.input.KeyEventHandler
 import com.tapman104.mpvplayer.player.playback.PlayerScreen
-import com.tapman104.mpvplayer.settings.SettingsScreen
-import com.tapman104.mpvplayer.ui.theme.MpvPlayerTheme
-import com.tapman104.mpvplayer.util.UriResolver
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
-import com.tapman104.mpvplayer.player.engine.PlayerAction
-import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
-import com.tapman104.mpvplayer.core.engine.MpvController
+import com.tapman104.mpvplayer.settings.SettingsScreen
 import com.tapman104.mpvplayer.settings.SettingsViewModel
 import com.tapman104.mpvplayer.settings.SettingsViewModelFactory
-import mpv.potato.tapman104.player.model.QuickActionsPosition
+import com.tapman104.mpvplayer.ui.theme.MpvPlayerTheme
+import com.tapman104.mpvplayer.util.UriResolver
+import com.tapman104.mpvplayer.player.model.QuickActionsPosition
+import android.provider.Settings
 
-
+/**
+ * Pure window host for the player UI.
+ *
+ * Responsibilities (only):
+ *  - Set window flags and system-UI visibility.
+ *  - Create the SurfaceView and wire it to the engine surface holder.
+ *  - Host [setContent] with [PlayerScreen] and the settings overlay.
+ *  - Read Intent extras and forward URIs to the ViewModel.
+ *  - Delegate screen-off, lifecycle pause, and key events to ViewModel / [KeyEventHandler].
+ *
+ * No playback decisions. No engine calls. No AudioManager logic beyond reading headphone state.
+ */
 class PlayerActivity : ComponentActivity() {
 
     private val mpvController by lazy { MpvController(applicationContext) }
@@ -47,46 +58,29 @@ class PlayerActivity : ComponentActivity() {
 
     private lateinit var surfaceView: SurfaceView
 
-    /**
-     * Pauses playback when the screen turns off (power button).
-     * Using a BroadcastReceiver rather than onPause so that dialogs,
-     * notifications, and picture-in-picture transitions do NOT pause playback.
-     */
-    private val screenOffReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_SCREEN_OFF) {
-                viewModel.dispatch(PlayerAction.PausePlayback)
-            }
-        }
-    }
+    // ── File pickers ─────────────────────────────────────────────────────────
 
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            viewModel.dispatch(PlayerAction.LoadAndPlay(it))
-        }
-    }
+    ) { uri: Uri? -> uri?.let { viewModel.handleFileResult(it) } }
 
     private val subtitlePickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            viewModel.dispatch(PlayerAction.AddSubtitle(it))
-        }
-    }
+    ) { uri: Uri? -> uri?.let { viewModel.handleSubtitleResult(it) } }
 
     private val audioPickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            viewModel.dispatch(PlayerAction.AddAudioTrack(it))
-        }
+    ) { uri: Uri? -> uri?.let { viewModel.handleAudioTrackResult(it) } }
+
+    // ── Key-event routing ─────────────────────────────────────────────────────
+
+    private val keyEventHandler = KeyEventHandler { volumePct ->
+        viewModel.dispatch(PlayerAction.SetVolume(volumePct))
     }
 
-    /** The URI string of the currently loaded file — used as the resume key. */
-    private var currentFilePath: String? = null
-    private var currentBackgroundPlayPref: String = UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lifecycle
+    // ─────────────────────────────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,13 +94,11 @@ class PlayerActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
         }
 
-        // Register screen-off receiver to pause audio on lock
-        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        // Register ViewModel as lifecycle observer
+        lifecycle.addObserver(viewModel)
 
         // Create the SurfaceView that mpv will render into
         surfaceView = SurfaceView(this)
-
-        // Register MpvSurface as the holder callback BEFORE setContent
         surfaceView.holder.addCallback(viewModel.controller.surface)
 
         val updateWindowBrightness: (Float) -> Unit = { newBrightness ->
@@ -120,15 +112,6 @@ class PlayerActivity : ComponentActivity() {
                 val playerState by viewModel.playerState.collectAsStateWithLifecycle()
                 val positionState by viewModel.positionState.collectAsStateWithLifecycle()
                 val playlistState by viewModel.playlistState.collectAsStateWithLifecycle()
-
-                var resumePlaybackEnabled by remember { mutableStateOf(true) }
-                LaunchedEffect(Unit) {
-                    viewModel.resumePlayback.collect { resumePlaybackEnabled = it }
-                }
-                val backgroundPlayPref by viewModel.backgroundPlay.collectAsStateWithLifecycle(
-                    initialValue = UserPreferencesRepository.DEFAULT_BACKGROUND_PLAY
-                )
-                currentBackgroundPlayPref = backgroundPlayPref
 
                 val doubleTapSeekSeconds by viewModel.doubleTapSeekSeconds.collectAsStateWithLifecycle(
                     initialValue = UserPreferencesRepository.DEFAULT_DOUBLE_TAP_SEEK_SECONDS
@@ -150,7 +133,6 @@ class PlayerActivity : ComponentActivity() {
                 )
                 val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
 
-                var pendingResumeMs by remember { mutableStateOf(0L) }
                 var showSettings by remember { mutableStateOf(false) }
 
                 val initialBrightness = remember {
@@ -163,36 +145,13 @@ class PlayerActivity : ComponentActivity() {
                     }
                 }
 
-                // Dynamically manage screen wake lock and save position on pause
+                // Dynamically manage screen wake lock
                 val isPlaying = playerState.isPlaying
                 LaunchedEffect(isPlaying) {
                     if (isPlaying) {
                         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     } else {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                        val path = currentFilePath ?: return@LaunchedEffect
-                        val posMs = positionState.currentPositionMs
-                        viewModel.saveCurrentPosition(path, posMs)  // not a PlayerAction (resume manager delegate)
-                    }
-                }
-
-                // Detect new file loads via playlist change, load resume position once per file.
-                LaunchedEffect(playlistState.currentUri) {
-                    val uriStr = playlistState.currentUri ?: return@LaunchedEffect
-                    currentFilePath = uriStr
-                    viewModel.loadResumePosition(uriStr) { savedMs ->  // not a PlayerAction (resume manager delegate)
-                        if (savedMs != null && savedMs > 5000L && resumePlaybackEnabled) {
-                            pendingResumeMs = savedMs
-                        } else {
-                            pendingResumeMs = 0L
-                        }
-                    }
-                }
-
-                LaunchedEffect(playerState.isLoading, pendingResumeMs) {
-                    if (!playerState.isLoading && pendingResumeMs > 0L) {
-                        viewModel.dispatch(PlayerAction.SeekCommit(pendingResumeMs))
-                        pendingResumeMs = 0L
                     }
                 }
 
@@ -206,14 +165,13 @@ class PlayerActivity : ComponentActivity() {
                     onTogglePlay = { viewModel.dispatch(PlayerAction.TogglePlay) },
                     initialBrightness = initialBrightness,
                     onBrightnessChange = updateWindowBrightness,
-                    onSeekForward = { viewModel.dispatch(PlayerAction.SeekRelative(it)) },
-                    onSeekBackward = { viewModel.dispatch(PlayerAction.SeekRelative(-it)) },
-                    onSeekGestureDrag = { viewModel.dispatch(PlayerAction.SeekGestureDrag(it)) },
-                    onSeekCommit = { viewModel.dispatch(PlayerAction.SeekCommit(it)) },
-                    onSpeedOverride = { viewModel.dispatch(PlayerAction.SetPlaybackSpeedRamped(it)) },
-                    onSpeedRestore = { viewModel.dispatch(PlayerAction.RestorePlaybackSpeed) },
-                    onZoomChange = { viewModel.dispatch(PlayerAction.SetZoomAndPan(it, 0f, 0f)) },
-                    onVolumeChange = { viewModel.dispatch(PlayerAction.SetVolume(it)) },
+                    onGestureIntent = { intent ->
+                        if (intent is GestureIntent.BrightnessChange) {
+                            updateWindowBrightness(intent.delta)
+                        } else {
+                            viewModel.submitGestureIntent(intent)
+                        }
+                    },
                     onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
                     onBack = { finish() },
                     onOpenSettings = {
@@ -273,38 +231,17 @@ class PlayerActivity : ComponentActivity() {
         }
 
         // Handle direct launch from a file manager or intent
-        intent.data?.let { viewModel.dispatch(PlayerAction.LoadAndPlay(it)) }
+        intent.data?.let { viewModel.handleFileResult(it) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.data?.let { viewModel.dispatch(PlayerAction.LoadAndPlay(it)) }
+        intent.data?.let { viewModel.handleFileResult(it) }
     }
 
     override fun onPause() {
         super.onPause()
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        when (currentBackgroundPlayPref) {
-            "off" -> {
-                viewModel.dispatch(PlayerAction.PausePlayback)
-            }
-            "always" -> {
-                // Do nothing — playback continues when minimized/backgrounded
-            }
-            "headphones_only" -> {
-                val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
-                val headphonesConnected = audioManager?.let { am ->
-                    @Suppress("DEPRECATION")
-                    am.isWiredHeadsetOn || am.isBluetoothA2dpOn
-                } ?: false
-                if (!headphonesConnected) {
-                    viewModel.dispatch(PlayerAction.PausePlayback)
-                }
-            }
-            else -> {
-                viewModel.dispatch(PlayerAction.PausePlayback)
-            }
-        }
     }
 
     override fun onStop() {
@@ -314,34 +251,21 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(screenOffReceiver)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
-            val handled = super.onKeyDown(keyCode, event)
-            syncSystemVolume()
-            return handled
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return super.onKeyDown(keyCode, event)
+        val superResult = super.onKeyDown(keyCode, event)
+        return keyEventHandler.handleKeyDown(keyCode, superResult, audioManager).let {
+            if (it) it else superResult
         }
-        return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
-            val handled = super.onKeyUp(keyCode, event)
-            syncSystemVolume()
-            return handled
-        }
-        return super.onKeyUp(keyCode, event)
-    }
-
-    private fun syncSystemVolume() {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
-        val currentVol = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-        val maxVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-        if (maxVol > 0) {
-            val pct = ((currentVol.toFloat() / maxVol.toFloat()) * 100f).roundToInt()
-            viewModel.dispatch(PlayerAction.SetVolume(pct))
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return super.onKeyUp(keyCode, event)
+        val superResult = super.onKeyUp(keyCode, event)
+        return keyEventHandler.handleKeyUp(keyCode, superResult, audioManager).let {
+            if (it) it else superResult
         }
     }
 }
