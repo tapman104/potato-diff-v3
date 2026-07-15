@@ -81,13 +81,18 @@ class TrackCoordinator(
      *                    decode-mode picker dialog, which pauses first).
      */
     fun cycleDecodeMode(next: DecodeMode, resumeAfter: Boolean = false) {
+        val wasPaused = sharedPlayerState.value.isPaused
         val mpvMode = when (next) {
             DecodeMode.HW     -> "mediacodec"
             DecodeMode.HWPlus -> "mediacodec-copy"
             DecodeMode.SW     -> "no"
         }
         controller.executor.setHwdec(mpvMode)
-        if (resumeAfter) controller.executor.play()
+        if (wasPaused) {
+            controller.executor.pause()
+        } else if (resumeAfter) {
+            controller.executor.play()
+        }
         scope.launch {
             preferencesRepository.setDecodeMode(mpvMode)
         }

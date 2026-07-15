@@ -125,7 +125,11 @@ class PlayerEngine(
                                 else -> DecodeMode.HW
                             }
                             if (_playerState.value.decodeMode != mode) {
+                                val wasPaused = _playerState.value.isPaused
                                 controller.executor.setHwdec(mode.mpvValue)
+                                if (wasPaused) {
+                                    controller.executor.pause()
+                                }
                                 _playerState.update { it.copy(decodeMode = mode) }
                             }
                         }

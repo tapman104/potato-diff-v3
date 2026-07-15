@@ -385,8 +385,6 @@ fun PlayerOverlay(
 
         // ── DECODE MODE DIALOG (animated) ────────────────────────────────────
         if (overlayState.activeDialog == OverlayDialog.DecodeModePicker) {
-            LaunchedEffect(Unit) { onPause() }
-
             AnimatedVisibility(
                 visible = decodeDialogVisible,
                 enter = fadeIn(tween(180)) + scaleIn(
@@ -418,7 +416,6 @@ fun PlayerOverlay(
                             decodeDialogVisible = false
                             delay(220L)
                             onDismissDialog()
-                            onPlay()   // Player was explicitly paused; resume it.
                         }
                     }
                 )
