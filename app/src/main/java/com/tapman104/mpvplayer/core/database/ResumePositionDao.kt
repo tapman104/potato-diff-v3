@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ResumePositionDao {
@@ -17,6 +16,4 @@ interface ResumePositionDao {
     @Query("DELETE FROM resume_positions WHERE filePath = :filePath")
     suspend fun deletePosition(filePath: String)
 
-    @Query("SELECT * FROM resume_positions ORDER BY updatedAt DESC LIMIT 50")
-    fun getAllPositions(): Flow<List<ResumePositionEntity>>
 }

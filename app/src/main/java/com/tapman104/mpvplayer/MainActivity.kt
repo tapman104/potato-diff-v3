@@ -20,8 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
-import com.tapman104.mpvplayer.history.HistoryScreen
-import com.tapman104.mpvplayer.history.HistoryViewModel
 import com.tapman104.mpvplayer.home.ui.HomeScreen
 import com.tapman104.mpvplayer.settings.SettingsScreen
 import com.tapman104.mpvplayer.settings.SettingsViewModel
@@ -32,7 +30,6 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val historyViewModel: HistoryViewModel by viewModels()
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -95,25 +92,10 @@ class MainActivity : ComponentActivity() {
                                 onBack = { navTarget = null }
                             )
                         }
-                        "history" -> {
-                            HistoryScreen(
-                                viewModel = historyViewModel,
-                                onItemClick = { path, posMs ->
-                                    val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
-                                        data = Uri.parse(path)
-                                        putExtra(PlayerActivity.EXTRA_RESUME_MS, posMs)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    startActivity(intent)
-                                },
-                                onBack = { navTarget = null }
-                            )
-                        }
                         else -> {
                             HomeScreen(
                                 onOpenFile = { filePickerLauncher.launch(arrayOf("video/*")) },
-                                onSettingsClick = { navTarget = "settings" },
-                                onHistoryClick = { navTarget = "history" }
+                                onSettingsClick = { navTarget = "settings" }
                             )
                         }
                     }

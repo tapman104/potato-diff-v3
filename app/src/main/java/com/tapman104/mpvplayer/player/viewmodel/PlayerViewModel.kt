@@ -241,13 +241,6 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Called when [PlayerActivity] is launched from the history screen with an explicit
-     * resume position. Overrides [pendingResumeMs] so the seek fires once loading completes.
-     */
-    fun setHistoryResumeOverride(positionMs: Long) {
-        pendingResumeMs = positionMs
-    }
 
     // ── View mode & rotation state ────────────────────────────────────────────
 

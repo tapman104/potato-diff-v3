@@ -16,8 +16,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,7 +49,6 @@ import com.tapman104.mpvplayer.player.gesture.GestureHandler
 import com.tapman104.mpvplayer.player.gesture.GestureIntent
 import com.tapman104.mpvplayer.player.model.DecodeMode
 import com.tapman104.mpvplayer.player.model.FileInfo
-import com.tapman104.mpvplayer.player.model.PlayerError
 import kotlin.math.roundToInt
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
@@ -109,8 +106,6 @@ fun PlayerOverlay(
     onCycleViewMode: () -> Unit = {},
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
-    onClearError: () -> Unit = {},
-    onToggleLock: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var overlayState by remember { mutableStateOf(OverlayUiState()) }
@@ -293,21 +288,6 @@ fun PlayerOverlay(
                         )
                     }
 
-                    // Lock button (only when unlocked)
-                    if (!playerState.isLocked) {
-                        IconButton(
-                            onClick = onToggleLock,
-                            modifier = Modifier
-                                .padding(end = 4.dp)
-                                .size(40.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.LockOpen,
-                                contentDescription = "Lock screen",
-                                tint = Color.White.copy(alpha = 0.85f)
-                            )
-                        }
-                    }
 
                     // Quick actions on the right — only when TOP_RIGHT
                     if (quickActionsPosition == QuickActionsPosition.TOP_RIGHT) {
@@ -397,53 +377,6 @@ fun PlayerOverlay(
             )
         }
 
-        // ── ERROR BANNER ──────────────────────────────────────────────────────
-        val errorMessage = when (val err = playerState.error) {
-            is PlayerError.EngineError -> err.message
-            is PlayerError.FileNotFound -> "File not found: ${err.path}"
-            is PlayerError.UnsupportedFormat -> "Unsupported format: ${err.path}"
-            PlayerError.UnknownError -> "An unknown playback error occurred"
-            null -> null
-        }
-        AnimatedVisibility(
-            visible = errorMessage != null,
-            enter = fadeIn(tween(200)) + slideInVertically(tween(200)),
-            exit = fadeOut(tween(200)) + slideOutVertically(tween(200)),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 80.dp, start = 16.dp, end = 16.dp)
-        ) {
-            if (errorMessage != null) {
-                Surface(
-                    color = Color(0xFFB00020),
-                    shape = RoundedCornerShape(8.dp),
-                    shadowElevation = 6.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = errorMessage,
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        TextButton(onClick = onClearError) {
-                            Text(
-                                text = "DISMISS",
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    }
-                }
-            }
-        }
 
         // ── DIALOGS ───────────────────────────────────────────────────────────
         if (overlayState.activeDialog == OverlayDialog.AudioTracks) {
@@ -553,42 +486,5 @@ fun PlayerOverlay(
             )
         }
 
-        // ── LOCK OVERLAY ──────────────────────────────────────────────────────
-        if (playerState.isLocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .pointerInput(onToggleLock) {
-                        detectTapGestures(
-                            onDoubleTap = { onToggleLock() }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Lock,
-                        contentDescription = "Locked",
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Locked",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Double-tap to unlock",
-                        color = Color.White.copy(alpha = 0.6f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
     }
 }

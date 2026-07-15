@@ -49,8 +49,6 @@ fun PlayerScreen(
     onCycleViewMode: () -> Unit = {},
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
-    onClearError: () -> Unit = {},
-    onToggleLock: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -101,8 +99,6 @@ fun PlayerScreen(
             onCycleViewMode = onCycleViewMode,
             onRotate = onRotate,
             onEnterPip = onEnterPip,
-            onClearError = onClearError,
-            onToggleLock = onToggleLock,
             modifier = Modifier.fillMaxSize()
         )
     }
