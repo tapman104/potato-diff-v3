@@ -218,6 +218,7 @@ class PlayerEngine(
             PlayerAction.PlayPrevious                  -> playlistManager.playPrevious()
             is PlayerAction.PlayAt                     -> playlistManager.playAt(action.index)
             PlayerAction.ClearError                    -> _playerState.update { it.copy(error = null, hasError = false) }
+            PlayerAction.ToggleLock                    -> _playerState.update { it.copy(isLocked = !it.isLocked) }
         }
     }
 

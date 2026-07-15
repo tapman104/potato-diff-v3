@@ -26,6 +26,7 @@ data class PlayerState(
     val videoZoom: Float = 0f,      // MPV video-zoom range: -1f to 3f
     val videoPanX: Float = 0f,      // MPV video-pan-x
     val videoPanY: Float = 0f,      // MPV video-pan-y
+    val isLocked: Boolean = false,
 ) {
     val isPlaying: Boolean get() = !isPaused
     val speed: Float get() = playbackSpeed.toFloat()

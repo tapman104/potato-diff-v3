@@ -116,4 +116,8 @@ sealed interface PlayerAction {
     // ── Error handling ────────────────────────────────────────────────────────
     /** Clear the current player error state. */
     data object ClearError : PlayerAction
+
+    // ── Lock ──────────────────────────────────────────────────────────────────
+    /** Toggle the screen lock overlay on/off. */
+    data object ToggleLock : PlayerAction
 }

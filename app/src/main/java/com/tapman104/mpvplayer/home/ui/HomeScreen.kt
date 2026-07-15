@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.sp
 fun HomeScreen(
     onOpenFile: () -> Unit,
     onSettingsClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -59,6 +61,23 @@ fun HomeScreen(
             }
         }
 
+        // History button — top-start
+        IconButton(
+            onClick = onHistoryClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(top = 8.dp, start = 8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.History,
+                contentDescription = "History",
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        // Settings button — top-end
         IconButton(
             onClick = onSettingsClick,
             modifier = Modifier
@@ -75,3 +94,4 @@ fun HomeScreen(
         }
     }
 }
+

@@ -33,7 +33,11 @@ import com.tapman104.mpvplayer.settings.SettingsViewModelFactory
 import com.tapman104.mpvplayer.ui.theme.MpvPlayerTheme
 import com.tapman104.mpvplayer.util.UriResolver
 import com.tapman104.mpvplayer.player.model.QuickActionsPosition
+import android.content.ComponentName
+import android.content.ServiceConnection
+import android.os.IBinder
 import android.provider.Settings
+import com.tapman104.mpvplayer.player.service.PlayerService
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -51,9 +55,25 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class PlayerActivity : ComponentActivity() {
 
+    companion object {
+        const val EXTRA_RESUME_MS = "extra_resume_ms"
+    }
+
     private val viewModel: PlayerViewModel by viewModels()
 
     private lateinit var surfaceView: SurfaceView
+
+    // ── PlayerService binding ─────────────────────────────────────────────────
+
+    private var playerServiceBound = false
+    private val playerServiceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            playerServiceBound = true
+        }
+        override fun onServiceDisconnected(name: ComponentName?) {
+            playerServiceBound = false
+        }
+    }
 
     // ── File pickers ─────────────────────────────────────────────────────────
 
@@ -206,7 +226,8 @@ class PlayerActivity : ComponentActivity() {
                             }
                         }
                     },
-                    onClearError = { viewModel.dispatch(PlayerAction.ClearError) }
+                    onClearError = { viewModel.dispatch(PlayerAction.ClearError) },
+                    onToggleLock = { viewModel.dispatch(PlayerAction.ToggleLock) }
                 )
 
                 if (showSettings) {
@@ -228,8 +249,13 @@ class PlayerActivity : ComponentActivity() {
             }
         }
 
-        // Handle direct launch from a file manager or intent
+        // Handle direct launch from a file manager, intent, or history
         intent.data?.let { viewModel.handleFileResult(it) }
+        // If launched from history with a resume position override, seek after load
+        val resumeMs = intent.getLongExtra(EXTRA_RESUME_MS, -1L)
+        if (resumeMs > 0L) {
+            viewModel.setHistoryResumeOverride(resumeMs)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -242,9 +268,19 @@ class PlayerActivity : ComponentActivity() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
+    override fun onStart() {
+        super.onStart()
+        val intent = Intent(this, PlayerService::class.java)
+        bindService(intent, playerServiceConnection, BIND_AUTO_CREATE)
+    }
+
     override fun onStop() {
         super.onStop()
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (playerServiceBound) {
+            unbindService(playerServiceConnection)
+            playerServiceBound = false
+        }
     }
 
     override fun onDestroy() {

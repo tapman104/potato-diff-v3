@@ -12,9 +12,15 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
@@ -103,6 +110,7 @@ fun PlayerOverlay(
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
     onClearError: () -> Unit = {},
+    onToggleLock: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var overlayState by remember { mutableStateOf(OverlayUiState()) }
@@ -283,6 +291,22 @@ fun PlayerOverlay(
                             onBack = onBack,
                             modifier = Modifier.fillMaxWidth()
                         )
+                    }
+
+                    // Lock button (only when unlocked)
+                    if (!playerState.isLocked) {
+                        IconButton(
+                            onClick = onToggleLock,
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LockOpen,
+                                contentDescription = "Lock screen",
+                                tint = Color.White.copy(alpha = 0.85f)
+                            )
+                        }
                     }
 
                     // Quick actions on the right — only when TOP_RIGHT
@@ -527,6 +551,44 @@ fun PlayerOverlay(
                 onOpenSettings = onOpenSettingsAction,
                 onDismiss = onDismissDialog
             )
+        }
+
+        // ── LOCK OVERLAY ──────────────────────────────────────────────────────
+        if (playerState.isLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .pointerInput(onToggleLock) {
+                        detectTapGestures(
+                            onDoubleTap = { onToggleLock() }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = "Locked",
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Locked",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Double-tap to unlock",
+                        color = Color.White.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         }
     }
 }
