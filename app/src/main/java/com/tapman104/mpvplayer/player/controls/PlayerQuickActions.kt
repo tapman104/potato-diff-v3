@@ -1,7 +1,10 @@
 package com.tapman104.mpvplayer.player.controls
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.MoreVert
@@ -26,17 +29,31 @@ fun PlayerQuickActions(
     onMoreOptions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val buttonModifier = Modifier
+        .size(40.dp)
+        .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape)
+
     Row(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        IconButton(onClick = onSelectAudioTrack) {
+        IconButton(
+            onClick = onSelectAudioTrack,
+            modifier = buttonModifier
+        ) {
             Icon(Icons.Default.AudioFile, contentDescription = "Audio track", tint = Color.White)
         }
-        IconButton(onClick = onSelectSubtitleTrack) {
+        IconButton(
+            onClick = onSelectSubtitleTrack,
+            modifier = buttonModifier
+        ) {
             Icon(Icons.Default.Subtitles, contentDescription = "Subtitles", tint = Color.White)
         }
-        IconButton(onClick = onDecodeModeClick) {
+        IconButton(
+            onClick = onDecodeModeClick,
+            modifier = buttonModifier
+        ) {
             Text(
                 text = when (decodeMode) {
                     DecodeMode.HW -> "HW"
@@ -47,7 +64,10 @@ fun PlayerQuickActions(
                 fontSize = 12.sp
             )
         }
-        IconButton(onClick = onMoreOptions) {
+        IconButton(
+            onClick = onMoreOptions,
+            modifier = buttonModifier
+        ) {
             Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = Color.White)
         }
     }

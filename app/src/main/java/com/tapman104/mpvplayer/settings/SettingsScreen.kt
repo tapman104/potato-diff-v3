@@ -331,7 +331,7 @@ private fun RootSettingsCategoryScreen(
             CategoryNavigationRow(
                 icon = Icons.Rounded.Info,
                 title = "About",
-                subtitle = "Potato Player v${com.potato.tapman104.BuildConfig.VERSION_NAME} · libmpv",
+                subtitle = "Potato Player v${com.tapman104.mpvplayer.BuildConfig.VERSION_NAME} · libmpv",
                 onClick = { onNavigate(SettingsNavSection.About) }
             )
         }
@@ -952,7 +952,7 @@ private fun AboutCategoryScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Version ${com.potato.tapman104.BuildConfig.VERSION_NAME}",
+                    text = "Version ${com.tapman104.mpvplayer.BuildConfig.VERSION_NAME}",
                     color = SettingsColors.Accent,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium

@@ -34,7 +34,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.tapman104.mpvplayer.player.controls.PlayerBottomControls
-import com.tapman104.mpvplayer.player.controls.PlayerQuickActions
 import com.tapman104.mpvplayer.player.controls.PlayerTopBar
 import com.tapman104.mpvplayer.player.controls.PlayerViewControls
 import com.tapman104.mpvplayer.player.model.QuickActionsPosition
@@ -271,58 +270,16 @@ fun PlayerOverlay(
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // TopBar (back button + filename) takes all remaining space
-                    Box(modifier = Modifier.weight(1f)) {
-                        PlayerTopBar(
-                            fileName = fileName,
-                            onBack = onBack,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-
-                    // Quick actions on the right — only when TOP_RIGHT
-                    if (quickActionsPosition == QuickActionsPosition.TOP_RIGHT) {
-                        PlayerQuickActions(
-                            decodeMode = playerState.decodeMode,
-                            onSelectAudioTrack = onOpenAudioDialog,
-                            onSelectSubtitleTrack = onOpenSubtitleDialog,
-                            onDecodeModeClick = onOpenDecodeDialog,
-                            onMoreOptions = onOpenMoreOptions,
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .height(56.dp)
-                                .wrapContentHeight(Alignment.CenterVertically)
-                        )
-                    }
-                }
-
-                if (quickActionsPosition == QuickActionsPosition.TOP_LEFT) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        PlayerQuickActions(
-                            decodeMode = playerState.decodeMode,
-                            onSelectAudioTrack = onOpenAudioDialog,
-                            onSelectSubtitleTrack = onOpenSubtitleDialog,
-                            onDecodeModeClick = onOpenDecodeDialog,
-                            onMoreOptions = onOpenMoreOptions
-                        )
-                    }
-                }
-            }
+            PlayerTopBar(
+                fileName = fileName,
+                onBack = onBack,
+                decodeMode = playerState.decodeMode,
+                onSelectAudioTrack = onOpenAudioDialog,
+                onSelectSubtitleTrack = onOpenSubtitleDialog,
+                onDecodeModeClick = onOpenDecodeDialog,
+                onMoreOptions = onOpenMoreOptions,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         // ── BOTTOM CONTROLS ───────────────────────────────────────────────────
@@ -338,16 +295,10 @@ fun PlayerOverlay(
                 durationMs = positionState.durationMs,
                 bufferPositionMs = positionState.demuxerCacheTimeMs,
                 gestureSeekPreviewMs = gestureSeekPreviewMs,
-                decodeMode = playerState.decodeMode,
-                showQuickActions = quickActionsPosition == QuickActionsPosition.BOTTOM_LEFT,
                 onTogglePlay = onTogglePlay,
                 onSeek = onSeekCommitAction,
                 onSeekGesture = onSeekGestureDragAction,
-                onSeekPreviewMs = onSeekPreviewMs,
-                onSelectAudioTrack = onOpenAudioDialog,
-                onSelectSubtitleTrack = onOpenSubtitleDialog,
-                onDecodeModeClick = onOpenDecodeDialog,
-                onMoreOptions = onOpenMoreOptions
+                onSeekPreviewMs = onSeekPreviewMs
             )
         }
 

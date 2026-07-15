@@ -17,7 +17,7 @@ val minor = versionProps.getProperty("minor", "1").toInt()
 val patch = versionProps.getProperty("patch", "0").toInt()
 
 android {
-    namespace = "com.potato.tapman104"
+    namespace = "com.tapman104.mpvplayer"
     compileSdk = 35
     defaultConfig {
         applicationId = "com.potato.tapman104"

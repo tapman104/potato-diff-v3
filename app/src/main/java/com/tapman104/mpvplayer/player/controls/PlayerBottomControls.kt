@@ -1,10 +1,14 @@
 package com.tapman104.mpvplayer.player.controls
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -14,16 +18,11 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tapman104.mpvplayer.player.model.DecodeMode
 import java.util.concurrent.TimeUnit
 
 private fun formatMs(ms: Long): String {
@@ -40,16 +39,10 @@ fun PlayerBottomControls(
     durationMs: Long,
     bufferPositionMs: Long = 0L,
     gestureSeekPreviewMs: Long = -1L,
-    decodeMode: DecodeMode,
     onTogglePlay: () -> Unit,
     onSeek: (Long) -> Unit,
     onSeekGesture: (Long) -> Unit = {},
     onSeekPreviewMs: (Long) -> Unit = {},
-    onSelectAudioTrack: () -> Unit,
-    onSelectSubtitleTrack: () -> Unit,
-    onDecodeModeClick: () -> Unit,
-    onMoreOptions: () -> Unit,
-    showQuickActions: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val displayPositionMs = if (gestureSeekPreviewMs >= 0L) gestureSeekPreviewMs else currentPositionMs
@@ -58,16 +51,22 @@ fun PlayerBottomControls(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 12.dp)
     ) {
-        if (showQuickActions) {
-            PlayerQuickActions(
-                decodeMode = decodeMode,
-                onSelectAudioTrack = onSelectAudioTrack,
-                onSelectSubtitleTrack = onSelectSubtitleTrack,
-                onDecodeModeClick = onDecodeModeClick,
-                onMoreOptions = onMoreOptions,
-                modifier = Modifier.padding(bottom = 4.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = formatMs(displayPositionMs),
+                color = Color.White,
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = formatMs(durationMs),
+                color = Color.White,
+                fontSize = 13.sp
             )
         }
 
@@ -84,28 +83,28 @@ fun PlayerBottomControls(
                 onSeekPreviewMs(-1L)
             },
             colors = SliderDefaults.colors(
-                thumbColor = Color(0xFF8B5CF6),
-                activeTrackColor = Color(0xFF8B5CF6),
+                thumbColor = Color.White,
+                activeTrackColor = Color.White,
                 inactiveTrackColor = Color.White.copy(alpha = 0.3f),
             ),
             modifier = Modifier.fillMaxWidth()
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = "${formatMs(displayPositionMs)} / ${formatMs(durationMs)}",
-                color = Color.White,
-                fontSize = 12.sp
-            )
-            IconButton(onClick = onTogglePlay) {
+            IconButton(
+                onClick = onTogglePlay,
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(Color.White, shape = CircleShape)
+            ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = Color.White
+                    tint = Color.Black,
+                    modifier = Modifier.size(36.dp)
                 )
             }
         }
