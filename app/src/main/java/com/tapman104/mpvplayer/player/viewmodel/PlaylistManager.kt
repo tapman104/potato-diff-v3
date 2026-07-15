@@ -19,17 +19,7 @@ class PlaylistManager(
     val playlistState: StateFlow<PlaylistState> = _playlistState.asStateFlow()
 
     private fun resolveUri(uri: Uri): String {
-        if (uri.scheme != "content") {
-            return uri.path ?: uri.toString()
-        }
-        return try {
-            val pfd = context.contentResolver.openFileDescriptor(uri, "r")
-                ?: return uri.toString()
-            val fd = pfd.detachFd()
-            "fd://$fd"
-        } catch (e: Exception) {
-            uri.toString()
-        }
+        return com.tapman104.mpvplayer.util.UriResolver.resolveUri(context, uri)
     }
 
     fun resolveUriForSurface(uri: Uri): String = resolveUri(uri)
@@ -113,5 +103,17 @@ class PlaylistManager(
 
     fun onPlaybackEnded() {
         playNext()
+    }
+
+    fun getPlaylistNext(currentIndex: Int): String? {
+        val playlist = _playlistState.value
+        val nextIndex = currentIndex + 1
+        return if (nextIndex in playlist.items.indices) playlist.items[nextIndex] else null
+    }
+
+    fun getPlaylistPrevious(currentIndex: Int): String? {
+        val playlist = _playlistState.value
+        val prevIndex = currentIndex - 1
+        return if (prevIndex in playlist.items.indices) playlist.items[prevIndex] else null
     }
 }

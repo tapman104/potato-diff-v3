@@ -9,9 +9,16 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,8 +43,9 @@ import com.tapman104.mpvplayer.player.gesture.BrightnessIndicator
 import com.tapman104.mpvplayer.player.gesture.GestureHandler
 import com.tapman104.mpvplayer.player.gesture.GestureIntent
 import com.tapman104.mpvplayer.player.model.DecodeMode
-import kotlin.math.roundToInt
 import com.tapman104.mpvplayer.player.model.FileInfo
+import com.tapman104.mpvplayer.player.model.PlayerError
+import kotlin.math.roundToInt
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import kotlinx.coroutines.delay
@@ -94,6 +102,7 @@ fun PlayerOverlay(
     onCycleViewMode: () -> Unit = {},
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
+    onClearError: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var overlayState by remember { mutableStateOf(OverlayUiState()) }
@@ -362,6 +371,54 @@ fun PlayerOverlay(
                 color = Color(0xFF8B5CF6),
                 modifier = Modifier.align(Alignment.Center)
             )
+        }
+
+        // ── ERROR BANNER ──────────────────────────────────────────────────────
+        val errorMessage = when (val err = playerState.error) {
+            is PlayerError.EngineError -> err.message
+            is PlayerError.FileNotFound -> "File not found: ${err.path}"
+            is PlayerError.UnsupportedFormat -> "Unsupported format: ${err.path}"
+            PlayerError.UnknownError -> "An unknown playback error occurred"
+            null -> null
+        }
+        AnimatedVisibility(
+            visible = errorMessage != null,
+            enter = fadeIn(tween(200)) + slideInVertically(tween(200)),
+            exit = fadeOut(tween(200)) + slideOutVertically(tween(200)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 80.dp, start = 16.dp, end = 16.dp)
+        ) {
+            if (errorMessage != null) {
+                Surface(
+                    color = Color(0xFFB00020),
+                    shape = RoundedCornerShape(8.dp),
+                    shadowElevation = 6.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        TextButton(onClick = onClearError) {
+                            Text(
+                                text = "DISMISS",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // ── DIALOGS ───────────────────────────────────────────────────────────

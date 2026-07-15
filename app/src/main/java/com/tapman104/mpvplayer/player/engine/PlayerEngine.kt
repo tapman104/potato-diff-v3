@@ -9,6 +9,7 @@ import com.tapman104.mpvplayer.core.engine.MpvController
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.player.model.AspectRatioMode
 import com.tapman104.mpvplayer.player.model.DecodeMode
+import com.tapman104.mpvplayer.player.model.PlayerError
 import com.tapman104.mpvplayer.player.model.SubtitleTrack
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PlaylistState
@@ -85,14 +86,14 @@ class PlayerEngine(
 
     // ── Coordinators ──────────────────────────────────────────────────────────
 
-    private val playbackCoordinator = PlaybackCoordinator(
+    val playbackCoordinator = PlaybackCoordinator(
         application = application,
         controller = controller,
         eventProcessor = eventProcessor,
         sharedPlayerState = _playerState,
     )
 
-    private val trackCoordinator = TrackCoordinator(
+    val trackCoordinator = TrackCoordinator(
         application = application,
         controller = controller,
         sharedPlayerState = _playerState,
@@ -162,7 +163,7 @@ class PlayerEngine(
                     }
                 }
                 is InitResult.Failure ->
-                    _playerState.update { it.copy(error = result.message, hasError = true, isLoading = false) }
+                    _playerState.update { it.copy(error = PlayerError.EngineError(result.message), hasError = true, isLoading = false) }
             }
         }
     }
@@ -216,6 +217,7 @@ class PlayerEngine(
             PlayerAction.PlayNext                      -> playlistManager.playNext()
             PlayerAction.PlayPrevious                  -> playlistManager.playPrevious()
             is PlayerAction.PlayAt                     -> playlistManager.playAt(action.index)
+            PlayerAction.ClearError                    -> _playerState.update { it.copy(error = null, hasError = false) }
         }
     }
 

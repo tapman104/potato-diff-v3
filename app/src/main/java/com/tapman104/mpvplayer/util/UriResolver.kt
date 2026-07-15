@@ -43,4 +43,21 @@ object UriResolver {
 
         return "Unknown"
     }
+
+    /**
+     * Resolves a content:// or file:// URI to a file path or fd:// string playable by mpv.
+     */
+    fun resolveUri(context: Context, uri: Uri): String {
+        if (uri.scheme != "content") {
+            return uri.path ?: uri.toString()
+        }
+        return try {
+            val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+                ?: return uri.toString()
+            val fd = pfd.detachFd()
+            "fd://$fd"
+        } catch (e: Exception) {
+            uri.toString()
+        }
+    }
 }

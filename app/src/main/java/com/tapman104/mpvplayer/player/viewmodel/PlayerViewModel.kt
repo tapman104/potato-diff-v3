@@ -28,9 +28,21 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
+import com.tapman104.mpvplayer.player.domain.repository.MediaRepository
+import com.tapman104.mpvplayer.player.domain.usecase.CycleAspectRatioUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.GetResumePositionUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.LoadMediaUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.SaveResumePositionUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.SeekUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.SetAudioTrackUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.SetSpeedUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.SetSubtitleTrackUseCase
+import com.tapman104.mpvplayer.player.domain.usecase.TogglePlaybackUseCase
 import com.tapman104.mpvplayer.player.gesture.GestureIntent
 import com.tapman104.mpvplayer.player.model.QuickActionsPosition
 import com.tapman104.mpvplayer.player.model.ViewMode
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 /**
  * Thin lifecycle bridge between the Android ViewModel lifecycle and [PlayerEngine].
@@ -43,9 +55,20 @@ import com.tapman104.mpvplayer.player.model.ViewMode
  *
  * No direct engine calls. No business logic. No MpvEventListener.
  */
-class PlayerViewModel(
+@HiltViewModel
+class PlayerViewModel @Inject constructor(
     application: Application,
     private val engine: PlayerEngine,
+    private val seekUseCase: SeekUseCase,
+    private val togglePlaybackUseCase: TogglePlaybackUseCase,
+    private val loadMediaUseCase: LoadMediaUseCase,
+    private val setSpeedUseCase: SetSpeedUseCase,
+    private val setAudioTrackUseCase: SetAudioTrackUseCase,
+    private val setSubtitleTrackUseCase: SetSubtitleTrackUseCase,
+    private val cycleAspectRatioUseCase: CycleAspectRatioUseCase,
+    private val saveResumePositionUseCase: SaveResumePositionUseCase,
+    private val getResumePositionUseCase: GetResumePositionUseCase,
+    private val mediaRepository: MediaRepository,
 ) : AndroidViewModel(application), DefaultLifecycleObserver {
 
     // ── State flows ───────────────────────────────────────────────────────────
@@ -121,12 +144,11 @@ class PlayerViewModel(
         viewModelScope.launch {
             playlistState.map { it.currentUri }.distinctUntilChanged().collectLatest { uriStr ->
                 if (uriStr != null) {
-                    loadResumePosition(uriStr) { savedMs ->
-                        if (savedMs != null && savedMs > 5000L && resumePlayback.value) {
-                            pendingResumeMs = savedMs
-                        } else {
-                            pendingResumeMs = 0L
-                        }
+                    val savedMs = getResumePositionUseCase(uriStr)
+                    if (savedMs != null && savedMs > 5000L && resumePlayback.value) {
+                        pendingResumeMs = savedMs
+                    } else {
+                        pendingResumeMs = 0L
                     }
                 } else {
                     pendingResumeMs = 0L
@@ -148,14 +170,14 @@ class PlayerViewModel(
         viewModelScope.launch {
             _gestureIntents.collect { intent ->
                 when (intent) {
-                    is GestureIntent.Seek -> dispatch(PlayerAction.SeekRelative(intent.deltaMs))
+                    is GestureIntent.Seek -> seekUseCase(intent.deltaMs)
                     is GestureIntent.SeekCommit -> dispatch(PlayerAction.SeekCommit(intent.positionMs))
                     is GestureIntent.SeekGestureDrag -> dispatch(PlayerAction.SeekGestureDrag(intent.positionMs))
-                    is GestureIntent.SetSpeed -> dispatch(PlayerAction.SetPlaybackSpeedRamped(intent.speed))
+                    is GestureIntent.SetSpeed -> setSpeedUseCase(intent.speed)
                     is GestureIntent.RestoreSpeed -> dispatch(PlayerAction.RestorePlaybackSpeed)
                     is GestureIntent.VolumeChange -> dispatch(PlayerAction.SetVolume(intent.delta.toInt()))
                     is GestureIntent.ZoomChange -> dispatch(PlayerAction.SetZoomAndPan(intent.scale, intent.panX, intent.panY))
-                    is GestureIntent.TogglePlay -> dispatch(PlayerAction.TogglePlay)
+                    is GestureIntent.TogglePlay -> togglePlaybackUseCase()
                     is GestureIntent.BrightnessChange -> { /* Handled directly by window brightness update */ }
                 }
             }
@@ -164,7 +186,16 @@ class PlayerViewModel(
 
     // ── Dispatch ──────────────────────────────────────────────────────────────
 
-    fun dispatch(action: PlayerAction) = engine.dispatch(action)
+    fun dispatch(action: PlayerAction) {
+        when (action) {
+            is PlayerAction.SeekRelative -> viewModelScope.launch { seekUseCase(action.offsetMs) }
+            PlayerAction.TogglePlay -> viewModelScope.launch { togglePlaybackUseCase() }
+            is PlayerAction.SetSpeed -> viewModelScope.launch { setSpeedUseCase(action.speed) }
+            is PlayerAction.SetAudioTrack -> viewModelScope.launch { setAudioTrackUseCase(action.id) }
+            is PlayerAction.SetSubtitleTrack -> viewModelScope.launch { setSubtitleTrackUseCase(action.id) }
+            else -> engine.dispatch(action)
+        }
+    }
 
     // ── Subtitle appearance delegates (not PlayerAction variants) ─────────────
 
@@ -180,16 +211,35 @@ class PlayerViewModel(
     fun setSubtitleAppearance(size: Float, position: Float) = engine.setSubtitleAppearance(size, position)
     fun setPreferredSubtitleLanguage(lang: String) = engine.setPreferredSubtitleLanguage(lang)
 
-    // ── Resume position delegates ─────────────────────────────────────────────
+    // ── Resume position & playback use case delegates ─────────────────────────
 
-    fun saveCurrentPosition(filePath: String, positionMs: Long) =
-        engine.saveCurrentPosition(filePath, positionMs)
+    fun saveCurrentPosition(filePath: String, positionMs: Long) {
+        viewModelScope.launch {
+            saveResumePositionUseCase(filePath, positionMs)
+        }
+    }
 
-    fun loadResumePosition(filePath: String, onResult: (Long?) -> Unit) =
-        engine.loadResumePosition(filePath, onResult)
+    fun loadResumePosition(filePath: String, onResult: (Long?) -> Unit) {
+        viewModelScope.launch {
+            val result = getResumePositionUseCase(filePath)
+            onResult(result)
+        }
+    }
 
     fun clearResumePosition(filePath: String) =
         engine.clearResumePosition(filePath)
+
+    fun cycleAspectRatio() {
+        viewModelScope.launch {
+            cycleAspectRatioUseCase()
+        }
+    }
+
+    fun loadMedia(path: String) {
+        viewModelScope.launch {
+            loadMediaUseCase(path)
+        }
+    }
 
     // ── View mode & rotation state ────────────────────────────────────────────
 

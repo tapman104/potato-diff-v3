@@ -1,6 +1,7 @@
 package com.tapman104.mpvplayer.core.engine
 
 import com.tapman104.mpvplayer.player.model.DecodeMode
+import com.tapman104.mpvplayer.player.model.PlayerError
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
 import kotlinx.coroutines.CoroutineScope
@@ -17,7 +18,7 @@ class EventProcessorTest {
 
     @Test
     fun testOnFileLoaded_clearsErrorAndSetsLoaded() {
-        val playerState = MutableStateFlow(PlayerState(isLoading = true, hasError = true, error = "old error"))
+        val playerState = MutableStateFlow(PlayerState(isLoading = true, hasError = true, error = PlayerError.EngineError("old error")))
         val positionState = MutableStateFlow(PositionState())
         val processor = EventProcessor(scope, playerState, positionState)
 
@@ -138,7 +139,22 @@ class EventProcessorTest {
         processor.onError("Decoder failure")
 
         assertTrue(playerState.value.hasError)
-        assertEquals("Decoder failure", playerState.value.error)
+        assertEquals(PlayerError.EngineError("Decoder failure"), playerState.value.error)
         assertFalse(playerState.value.isLoading)
+    }
+
+    @Test
+    fun testOnErrorMappings() {
+        val playerState = MutableStateFlow(PlayerState(isLoading = true))
+        val positionState = MutableStateFlow(PositionState())
+        val processor = EventProcessor(scope, playerState, positionState)
+
+        val fileNotFoundMsg = "No such file or directory: /sdcard/movie.mkv"
+        processor.onError(fileNotFoundMsg)
+        assertEquals(PlayerError.FileNotFound(fileNotFoundMsg), playerState.value.error)
+
+        val unsupportedMsg = "unrecognized file format: /sdcard/audio.xyz"
+        processor.onError(unsupportedMsg)
+        assertEquals(PlayerError.UnsupportedFormat(unsupportedMsg), playerState.value.error)
     }
 }

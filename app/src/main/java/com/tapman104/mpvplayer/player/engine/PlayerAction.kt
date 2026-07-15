@@ -112,4 +112,8 @@ sealed interface PlayerAction {
 
     /** Jump to the playlist item at [index]. */
     data class PlayAt(val index: Int) : PlayerAction
+
+    // ── Error handling ────────────────────────────────────────────────────────
+    /** Clear the current player error state. */
+    data object ClearError : PlayerAction
 }

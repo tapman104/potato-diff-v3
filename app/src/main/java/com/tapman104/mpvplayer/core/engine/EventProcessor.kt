@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import com.tapman104.mpvplayer.player.model.DecodeMode
+import com.tapman104.mpvplayer.player.model.PlayerError
 import com.tapman104.mpvplayer.player.model.SubtitleTrack
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
@@ -119,6 +120,16 @@ class EventProcessor(
     }
 
     override fun onError(message: String) {
-        playerState.update { it.copy(error = message, hasError = true, isLoading = false) }
+        val playerError = when {
+            message.contains("No such file or directory", ignoreCase = true) ||
+            message.contains("cannot open", ignoreCase = true) ||
+            message.contains("file not found", ignoreCase = true) -> PlayerError.FileNotFound(message)
+            message.contains("unrecognized format", ignoreCase = true) ||
+            message.contains("unrecognized file format", ignoreCase = true) ||
+            message.contains("format not supported", ignoreCase = true) ||
+            message.contains("unknown format", ignoreCase = true) -> PlayerError.UnsupportedFormat(message)
+            else -> PlayerError.EngineError(message)
+        }
+        playerState.update { it.copy(error = playerError, hasError = true, isLoading = false) }
     }
 }

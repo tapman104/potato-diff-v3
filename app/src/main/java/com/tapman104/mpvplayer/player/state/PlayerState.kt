@@ -4,6 +4,7 @@ import com.tapman104.mpvplayer.player.model.AudioTrack
 import com.tapman104.mpvplayer.player.model.SubtitleTrack
 import com.tapman104.mpvplayer.player.model.DecodeMode
 import com.tapman104.mpvplayer.player.model.AspectRatioMode
+import com.tapman104.mpvplayer.player.model.PlayerError
 
 data class PlayerState(
     val fileLoaded: Boolean = false,
@@ -19,7 +20,7 @@ data class PlayerState(
     val hasError: Boolean = false,
     val aspectRatioMode: AspectRatioMode = AspectRatioMode.DEFAULT,
     val isLoading: Boolean = true,
-    val error: String? = null,
+    val error: PlayerError? = null,
     val subtitleSize: Float = 1.1f,
     val subtitlePosition: Float = 0.07f,
     val videoZoom: Float = 0f,      // MPV video-zoom range: -1f to 3f

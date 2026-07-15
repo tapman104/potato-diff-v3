@@ -49,4 +49,8 @@ class ResumePositionManager(
             resumePositionDao.deletePosition(filePath)
         }
     }
+
+    fun save(path: String, posMs: Long) = saveCurrentPosition(path, posMs)
+
+    suspend fun get(path: String): Long? = resumePositionDao.getPosition(path)?.positionMs
 }

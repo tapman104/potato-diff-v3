@@ -21,14 +21,12 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.tapman104.mpvplayer.core.engine.MpvController
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
 import com.tapman104.mpvplayer.player.engine.PlayerAction
 import com.tapman104.mpvplayer.player.gesture.GestureIntent
 import com.tapman104.mpvplayer.player.input.KeyEventHandler
 import com.tapman104.mpvplayer.player.playback.PlayerScreen
 import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModel
-import com.tapman104.mpvplayer.player.viewmodel.PlayerViewModelFactory
 import com.tapman104.mpvplayer.settings.SettingsScreen
 import com.tapman104.mpvplayer.settings.SettingsViewModel
 import com.tapman104.mpvplayer.settings.SettingsViewModelFactory
@@ -36,6 +34,7 @@ import com.tapman104.mpvplayer.ui.theme.MpvPlayerTheme
 import com.tapman104.mpvplayer.util.UriResolver
 import com.tapman104.mpvplayer.player.model.QuickActionsPosition
 import android.provider.Settings
+import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Pure window host for the player UI.
@@ -49,12 +48,10 @@ import android.provider.Settings
  *
  * No playback decisions. No engine calls. No AudioManager logic beyond reading headphone state.
  */
+@AndroidEntryPoint
 class PlayerActivity : ComponentActivity() {
 
-    private val mpvController by lazy { MpvController(applicationContext) }
-    private val viewModel: PlayerViewModel by viewModels {
-        PlayerViewModelFactory.create(application, mpvController)
-    }
+    private val viewModel: PlayerViewModel by viewModels()
 
     private lateinit var surfaceView: SurfaceView
 
@@ -209,6 +206,7 @@ class PlayerActivity : ComponentActivity() {
                             }
                         }
                     },
+                    onClearError = { viewModel.dispatch(PlayerAction.ClearError) }
                 )
 
                 if (showSettings) {

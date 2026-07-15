@@ -66,6 +66,8 @@ class PlaybackCoordinator(
         controller.executor.seekRelativeCoalesced(offsetMs / 1000.0)
     }
 
+    fun seek(deltaMs: Long) = seekRelative(deltaMs)
+
     fun seekGestureDrag(positionMs: Long) {
         eventProcessor.isSliderSeeking = true
         lastSeekTime = System.currentTimeMillis()
@@ -149,5 +151,13 @@ class PlaybackCoordinator(
         controller.executor.setVideoZoom(zoomLog2)
         controller.executor.setVideoPan(panX, panY)
         sharedPlayerState.update { it.copy(videoZoom = zoomLog2, videoPanX = panX, videoPanY = panY) }
+    }
+
+    fun loadFile(uri: String) = controller.executor.loadFile(uri)
+
+    fun cycleAspectRatio() {
+        val currentMode = sharedPlayerState.value.aspectRatioMode
+        val nextIndex = (currentMode.ordinal + 1) % AspectRatioMode.entries.size
+        setAspectRatio(AspectRatioMode.entries[nextIndex])
     }
 }
