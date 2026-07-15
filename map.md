@@ -9,11 +9,12 @@ Welcome to the **Potato Player MPV** Codebase Map. This document provides a defi
 ```
 c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 ├── app/src/main/java/com/tapman104/mpvplayer/
-│   ├── MainActivity.kt                     # Application launcher & entry point (hosts HomeScreen)
-│   ├── PlayerActivity.kt                   # Pure full-screen window host (window flags, PiP, pickers, lifecycle delegation)
+│   ├── MainActivity.kt                     # Application launcher & entry point (@AndroidEntryPoint, hosts HomeScreen)
+│   ├── PlayerActivity.kt                   # Pure full-screen window host (@AndroidEntryPoint, window flags, PiP, pickers)
+│   ├── PotatoPlayerApp.kt                  # Dagger Hilt Application entry point (@HiltAndroidApp)
 │   ├── core/
 │   │   ├── database/                       # Room SQLite persistence layer
-│   │   │   ├── AppDatabase.kt              # Room Database configuration & DAO provider
+│   │   │   ├── AppDatabase.kt              # Room Database configuration & DAO provider singleton
 │   │   │   ├── ResumePositionDao.kt        # Data Access Object for watch progress CRUD queries
 │   │   │   └── ResumePositionEntity.kt     # SQLite entity storing file path, position & duration
 │   │   ├── engine/                         # Native C/JNI libmpv engine abstraction & surface management
@@ -27,6 +28,12 @@ c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 │   │   │   └── TrackListParser.kt          # JSON/property parser for audio & subtitle tracks
 │   │   └── preferences/                    # Android DataStore preference storage
 │   │       └── UserPreferencesRepository.kt # Persistent hardware decode, gesture, styling & playback store
+│   ├── di/                                 # Dagger Hilt Dependency Injection modules (@Module)
+│   │   ├── DatabaseModule.kt               # Provides AppDatabase singleton and ResumePositionDao
+│   │   ├── EngineModule.kt                 # Provides MpvController, MpvCommandExecutor, PlayerEngine & Coordinators
+│   │   ├── MediaModule.kt                  # Provides UriResolver, PlaylistManager, ResumePositionManager & MediaRepository
+│   │   ├── PreferencesModule.kt            # Provides UserPreferencesRepository singleton
+│   │   └── UseCaseModule.kt                # Provides all 9 domain UseCases (@ViewModelScoped)
 │   ├── home/ui/
 │   │   └── HomeScreen.kt                   # Home screen media launcher UI & file/stream selector
 │   ├── player/
@@ -43,6 +50,20 @@ c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 │   │   │   ├── AudioTrackDialog.kt         # Audio stream picker & audio disable modal
 │   │   │   ├── MoreOptionsSheet.kt         # Side sheet for speed chips, FileInfo inspection & settings navigation
 │   │   │   └── SubtitleTrackDialog.kt      # Subtitle track selector & external file sideload modal
+│   │   ├── domain/                         # Clean architecture repository & use case layer
+│   │   │   ├── repository/                 # Repository interfaces & local implementations
+│   │   │   │   ├── LocalMediaRepository.kt # Implements MediaRepository using UriResolver & PlaylistManager
+│   │   │   │   └── MediaRepository.kt      # Interface contract for URI resolution and playlist navigation
+│   │   │   └── usecase/                    # Domain action encapsulations (@ViewModelScoped)
+│   │   │       ├── CycleAspectRatioUseCase.kt # Delegates aspect ratio cycling to PlaybackCoordinator
+│   │   │       ├── GetResumePositionUseCase.kt # Retrieves saved watch progress via ResumePositionManager
+│   │   │       ├── LoadMediaUseCase.kt     # Delegates media loading to PlaybackCoordinator
+│   │   │       ├── SaveResumePositionUseCase.kt # Persists watch progress via ResumePositionManager
+│   │   │       ├── SeekUseCase.kt          # Delegates seek operations to PlaybackCoordinator
+│   │   │       ├── SetAudioTrackUseCase.kt # Delegates audio track selection to TrackCoordinator
+│   │   │       ├── SetSpeedUseCase.kt      # Delegates playback speed changes to PlaybackCoordinator
+│   │   │       ├── SetSubtitleTrackUseCase.kt # Delegates subtitle track selection to TrackCoordinator
+│   │   │       └── TogglePlaybackUseCase.kt # Delegates play/pause toggling to PlaybackCoordinator
 │   │   ├── engine/                         # Top-level playback action dispatcher & engine hub
 │   │   │   ├── PlayerAction.kt             # Sealed interface of all UI commands dispatched to PlayerEngine
 │   │   │   └── PlayerEngine.kt             # Master engine orchestrator wiring coordinators, managers & preferences
@@ -73,15 +94,14 @@ c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 │   │   │   └── SubtitleAppearanceState.kt  # Subtitle styling state (`subScale`, `subPos`, colors, borders)
 │   │   └── viewmodel/                      # Business logic, state orchestration & coordinators
 │   │       ├── PlaybackCoordinator.kt      # Owns play, pause, seek, volume, speed, aspect & zoom commands
-│   │       ├── PlayerViewModel.kt          # Thin lifecycle bridge between Android lifecycle and `PlayerEngine`
-│   │       ├── PlayerViewModelFactory.kt   # Dependency injection factory instantiating `PlayerViewModel` & `PlayerEngine`
+│   │       ├── PlayerViewModel.kt          # Thin lifecycle bridge observing Android lifecycle (`@HiltViewModel`)
 │   │       ├── PlaylistManager.kt          # Playlist queue, index tracking & EOF auto-advance manager
 │   │       ├── ResumePositionManager.kt    # Debounced watch progress auto-saver & restorer
 │   │       ├── SubtitleController.kt       # Subtitle selection, sideloading & appearance coordinator
 │   │       └── TrackCoordinator.kt         # Owns audio selection, subtitle selection/sideloading & decode switching
 │   ├── settings/                           # Application Settings hub
 │   │   ├── SettingsScreen.kt               # Root settings Compose screen & cards
-│   │   └── SettingsViewModel.kt            # Settings ViewModel managing `UserPreferencesRepository`
+│   │   └── SettingsViewModel.kt            # Settings ViewModel & factory managing `UserPreferencesRepository`
 │   ├── ui/theme/                           # Material Design 3 Design System
 │   │   ├── Color.kt                        # App color palette definitions
 │   │   ├── Theme.kt                        # `MpvPlayerTheme` wrapper
@@ -108,20 +128,26 @@ c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 
 | Package Area | File & Clickable Link | Core Purpose | Key Methods / Properties | Key Collaborators |
 | :--- | :--- | :--- | :--- | :--- |
-| **App Entry** | [MainActivity.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/MainActivity.kt) | Application launcher & navigation host | `onCreate()`, `HomeScreen` wiring | `HomeScreen`, `PlayerActivity` |
-| **App Entry** | [PlayerActivity.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/PlayerActivity.kt) | Pure window host managing `SurfaceView`, window flags, PiP, file pickers, and delegating key/lifecycle events | `onCreate()`, `onUserLeaveHint()`, `keyEventHandler`, `filePickerLauncher` | `PlayerViewModel`, `PlayerScreen`, `KeyEventHandler` |
+| **App Entry** | [MainActivity.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/MainActivity.kt) | Application launcher & navigation host (`@AndroidEntryPoint`) | `onCreate()`, `HomeScreen` wiring | `HomeScreen`, `PlayerActivity` |
+| **App Entry** | [PlayerActivity.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/PlayerActivity.kt) | Pure window host managing `SurfaceView`, window flags, PiP, file pickers, and delegating key/lifecycle events (`@AndroidEntryPoint`) | `onCreate()`, `onUserLeaveHint()`, `keyEventHandler`, `filePickerLauncher` | `PlayerViewModel`, `PlayerScreen`, `KeyEventHandler` |
+| **App Entry** | [PotatoPlayerApp.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/PotatoPlayerApp.kt) | Application subclass & Hilt DI entry point (`@HiltAndroidApp`) | Class declaration | Dagger Hilt DI Modules (`di/*`) |
 | **Core Database** | [AppDatabase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/database/AppDatabase.kt) | Room SQLite database initialization & DAO provider | `resumePositionDao()` | `ResumePositionDao`, `ResumePositionEntity` |
 | **Core Database** | [ResumePositionDao.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/database/ResumePositionDao.kt) | Room DAO for playback progress queries | `savePosition()`, `getPosition()`, `deletePosition()` | `ResumePositionEntity` |
 | **Core Database** | [ResumePositionEntity.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/database/ResumePositionEntity.kt) | SQLite entity storing file path, timestamp & duration | `filePath`, `positionMs`, `durationMs` | `ResumePositionDao` |
 | **Core Engine** | [EventProcessor.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/EventProcessor.kt) | Throttles high-frequency `time-pos` updates (~5 Hz outside seek drag), suppresses seek echo, and synchronizes state | `onFileLoaded()`, `onPlaybackStarted()`, `onPlaybackStopped()`, `onPropertyChange()` | `MpvEventDispatcher`, `PlayerEngine`, `PlayerState` |
-| **Core Engine** | [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt) | Single-thread safe command queue (`mpv-engine-thread`), coalesced seek debouncer, and generation-aware surface detachment | `execute()`, `seekGesture()`, `seekCommit()`, `nextSurfaceGeneration()`, `detachSurface()` | `MPVLib` (JNI), `MpvSurface`, `PlaybackCoordinator` |
-| **Core Engine** | [MpvConstants.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvConstants.kt) | Static libmpv property & command string literals | `PROP_PAUSE`, `PROP_TIME_POS`, `PROP_HWDEC`, `PROP_SPEED`, etc. | Global Engine, `EventProcessor`, Coordinators |
-| **Core Engine** | [MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt) | Native libmpv engine facade & lifecycle governor | `init()`, `destroy()`, `copyFontAsset()` | `MpvCommandExecutor`, `MpvEventDispatcher`, `MpvOptionsConfigurator`, `MpvSurface` |
-| **Core Engine** | [MpvEventDispatcher.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvEventDispatcher.kt) | JNI callback router broadcasting native property events to registered listeners | `eventProperty()`, `addListener()`, `removeListener()` | `MpvEventListener`, `EventProcessor` |
-| **Core Engine** | [MpvOptionsConfigurator.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvOptionsConfigurator.kt) | Pre-init VO/GPU context & bundled font asset (`Roboto-Regular.ttf`) configurator | `initOptions()`, `copyFontAssets()` | `MPVLib`, Android Assets (`Context.assets`) |
-| **Core Engine** | [MpvSurface.kt](file:///c:/Users/tapman/Desktop/potatompv/mpvplayer/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvSurface.kt) | Generation-aware Android surface binding manager | `surfaceCreated()`, `surfaceDestroyed()`, `setVo()`, `hasSurface()` | `MpvCommandExecutor`, `PlayerActivity`, `PlayerVideo` |
+| **Core Engine** | [MpvCommandExecutor.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvCommandExecutor.kt) | Single-thread safe command queue (`mpv-engine-thread`), coalesced seek debouncer, and generation-aware surface detachment | `execute()`, `seekGesture()`, `seekCommit()`, `nextSurfaceGeneration()`, `detachSurface()` | `MPVLib` (JNI), `MpvSurface`, `PlaybackCoordinator` |
+| **Core Engine** | [MpvConstants.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvConstants.kt) | Static libmpv property & command string literals | `PROP_PAUSE`, `PROP_TIME_POS`, `PROP_HWDEC`, `PROP_SPEED`, etc. | Global Engine, `EventProcessor`, Coordinators |
+| **Core Engine** | [MpvController.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvController.kt) | Native libmpv engine facade & lifecycle governor | `init()`, `destroy()`, `copyFontAsset()` | `MpvCommandExecutor`, `MpvEventDispatcher`, `MpvOptionsConfigurator`, `MpvSurface` |
+| **Core Engine** | [MpvEventDispatcher.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvEventDispatcher.kt) | JNI callback router broadcasting native property events to registered listeners | `eventProperty()`, `addListener()`, `removeListener()` | `MpvEventListener`, `EventProcessor` |
+| **Core Engine** | [MpvOptionsConfigurator.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvOptionsConfigurator.kt) | Pre-init VO/GPU context & bundled font asset (`Roboto-Regular.ttf`) configurator | `initOptions()`, `copyFontAssets()` | `MPVLib`, Android Assets (`Context.assets`) |
+| **Core Engine** | [MpvSurface.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/MpvSurface.kt) | Generation-aware Android surface binding manager | `surfaceCreated()`, `surfaceDestroyed()`, `setVo()`, `hasSurface()` | `MpvCommandExecutor`, `PlayerActivity`, `PlayerVideo` |
 | **Core Engine** | [TrackListParser.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/engine/TrackListParser.kt) | Parses native track-list JSON/strings into Kotlin models | `parseTrackList()` | `AudioTrack`, `SubtitleTrack`, `EventProcessor` |
 | **Core Preferences** | [UserPreferencesRepository.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/core/preferences/UserPreferencesRepository.kt) | DataStore repository for hardware decode mode, gesture settings, styling & background play | `setDecodeMode()`, `updateSubtitleSize()`, `resumePlayback`, `backgroundPlay` flows | `PlayerEngine`, `TrackCoordinator`, `SettingsViewModel` |
+| **DI Modules** | [DatabaseModule.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/di/DatabaseModule.kt) | Dagger Hilt module providing `AppDatabase` and `ResumePositionDao` singletons | `provideDatabase()`, `provideResumePositionDao()` | `AppDatabase`, `ResumePositionDao` |
+| **DI Modules** | [EngineModule.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/di/EngineModule.kt) | Dagger Hilt module providing singletons for `MpvController`, `MpvCommandExecutor`, `MpvEventDispatcher`, `PlayerEngine`, `PlaybackCoordinator` & `TrackCoordinator` | `provideMpvController()`, `providePlayerEngine()`, `providePlaybackCoordinator()`, `provideTrackCoordinator()` | `PlayerEngine`, `MpvController`, `PlaybackCoordinator`, `TrackCoordinator` |
+| **DI Modules** | [MediaModule.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/di/MediaModule.kt) | Dagger Hilt module providing `UriResolver`, `PlaylistManager`, `ResumePositionManager` & `MediaRepository` (`LocalMediaRepository`) | `providePlaylistManager()`, `provideResumePositionManager()`, `provideMediaRepository()` | `PlaylistManager`, `ResumePositionManager`, `LocalMediaRepository` |
+| **DI Modules** | [PreferencesModule.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/di/PreferencesModule.kt) | Dagger Hilt module providing `UserPreferencesRepository` singleton | `provideUserPreferencesRepository()` | `UserPreferencesRepository` |
+| **DI Modules** | [UseCaseModule.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/di/UseCaseModule.kt) | Dagger Hilt module (`@ViewModelScoped`) providing all 9 domain `UseCase` classes | `provideSeekUseCase()`, `provideTogglePlaybackUseCase()`, `provideLoadMediaUseCase()`, `provideSetSpeedUseCase()`, etc. | `SeekUseCase`, `TogglePlaybackUseCase`, `PlayerViewModel` |
 | **Home UI** | [HomeScreen.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/home/ui/HomeScreen.kt) | Home screen media launcher UI allowing local file selection or network streaming | `HomeScreen(...)` | `MainActivity`, `PlayerActivity` |
 | **Player Controls** | [PlayerBottomControls.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/controls/PlayerBottomControls.kt) | Bottom playback bar with interactive seekbar slider, drag preview & play/pause button | `PlayerBottomControls(...)`, `onSeekPreviewMs`, `onSeekGesture`, `onSeekCommitMs` | `PlayerOverlay`, `TimeFormatter`, `PlayerControlsStyles` |
 | **Player Controls** | [PlayerControlsStyles.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/controls/PlayerControlsStyles.kt) | Shared glassmorphic design tokens, dimensions & styled icon buttons | `PlayerIconButton(...)`, `Modifier.controlBarBackground(...)` | All control bars (`PlayerTopBar`, `PlayerBottomControls`, etc.) |
@@ -133,6 +159,13 @@ c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 | **Player Dialogs** | [AudioTrackDialog.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/dialogs/AudioTrackDialog.kt) | Modal dialog for switching audio streams or disabling audio | `AudioTrackDialog(...)` | `PlayerOverlay`, `TrackCoordinator` |
 | **Player Dialogs** | [MoreOptionsSheet.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/dialogs/MoreOptionsSheet.kt) | Side sheet for speed chips (`0.5x..2.0x`), `FileInfo` inspection & settings navigation | `MoreOptionsSheet(...)` | `PlayerOverlay`, `FileInfo`, `PlayerActivity` |
 | **Player Dialogs** | [SubtitleTrackDialog.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/dialogs/SubtitleTrackDialog.kt) | Modal dialog for embedded subtitle selection & external file sideloading | `SubtitleTrackDialog(...)` | `PlayerOverlay`, `TrackCoordinator` |
+| **Player Domain Repositories** | [MediaRepository.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/repository/MediaRepository.kt) & [LocalMediaRepository.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/repository/LocalMediaRepository.kt) | Domain repository contract (`MediaRepository`) and local filesystem/playlist implementation (`LocalMediaRepository`) | `resolveUri(uri)`, `getPlaylistNext(index)`, `getPlaylistPrevious(index)` | `UriResolver`, `PlaylistManager`, `PlayerViewModel` |
+| **Player Domain Use Cases** | [CycleAspectRatioUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/CycleAspectRatioUseCase.kt) | Domain action encapsulating video aspect ratio cycling | `invoke(mode)` | `PlaybackCoordinator`, `PlayerViewModel` |
+| **Player Domain Use Cases** | [GetResumePositionUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/GetResumePositionUseCase.kt) & [SaveResumePositionUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/SaveResumePositionUseCase.kt) | Domain actions retrieving and saving watch progress | `invoke(filePath)`, `invoke(filePath, positionMs)` | `ResumePositionManager`, `PlayerViewModel` |
+| **Player Domain Use Cases** | [LoadMediaUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/LoadMediaUseCase.kt) | Domain action encapsulating media file/stream loading | `invoke(uri)` | `PlaybackCoordinator`, `PlayerViewModel` |
+| **Player Domain Use Cases** | [SeekUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/SeekUseCase.kt) & [TogglePlaybackUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/TogglePlaybackUseCase.kt) | Domain actions encapsulating relative seeking and play/pause toggles | `invoke(deltaMs)`, `invoke()` | `PlaybackCoordinator`, `PlayerViewModel` |
+| **Player Domain Use Cases** | [SetSpeedUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/SetSpeedUseCase.kt) | Domain action encapsulating playback speed adjustments | `invoke(speed)` | `PlaybackCoordinator`, `PlayerViewModel` |
+| **Player Domain Use Cases** | [SetAudioTrackUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/SetAudioTrackUseCase.kt) & [SetSubtitleTrackUseCase.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/domain/usecase/SetSubtitleTrackUseCase.kt) | Domain actions encapsulating audio and subtitle stream switching | `invoke(id)` | `TrackCoordinator`, `PlayerViewModel` |
 | **Player Engine** | [PlayerAction.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/engine/PlayerAction.kt) | Sealed interface representing all UI actions dispatched to `PlayerEngine` | `Play`, `Pause`, `SeekRelative`, `SetVolume`, `SetSpeed`, `SetDecodeMode`, `LoadAndPlay`, etc. | `PlayerEngine`, `PlayerViewModel`, `PlayerActivity` |
 | **Player Engine** | [PlayerEngine.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/engine/PlayerEngine.kt) | Top-level orchestrator wiring coordinators, sub-managers & preferences; exposes `dispatch` | `dispatch(action)`, `state`, `init()`, `destroy()` | `PlaybackCoordinator`, `TrackCoordinator`, `PlaylistManager`, `SubtitleController`, `ResumePositionManager`, `MpvController` |
 | **Player Gesture** | [GestureHandler.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/gesture/GestureHandler.kt) | Compose touch interceptor implementing `MpvPlayerController`; classifies touch via state machine and emits `GestureIntent` | `GestureHandler(...)`, `onIntent(GestureIntent)` | `MpvGestureStateMachine`, `GestureIntent`, `GestureIndicators`, `PlayerOverlay` |
@@ -155,13 +188,12 @@ c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 | **Player State** | [PositionState.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/state/PositionState.kt) | High-frequency timestamp & duration UI state model | `currentPositionMs`, `durationMs`, `bufferProgress` | `EventProcessor`, `PlayerEngine`, seekbars |
 | **Player State** | [SubtitleAppearanceState.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/state/SubtitleAppearanceState.kt) | Subtitle styling state (`subScale`, `subPos`, colors, borders, shadows) | Data properties | `SubtitleController`, `SubtitleAppearanceDialog` |
 | **Player ViewModel** | [PlaybackCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlaybackCoordinator.kt) | Owns play, pause, seek, volume, speed, aspect ratio & zoom/pan commands; mutates `sharedPlayerState` | `play()`, `pause()`, `seekRelative()`, `setVolume()`, `setSpeed()`, `setAspectRatio()` | `PlayerEngine`, `MpvController`, `EventProcessor` |
-| **Player ViewModel** | [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt) | Thin lifecycle bridge observing Android lifecycle, collecting `GestureIntent`, and delegating to `PlayerEngine` | `dispatch(action)`, `submitGestureIntent()`, `onScreenOff()`, `onLifecycleEvent()` | `PlayerActivity`, `PlayerEngine`, `GestureIntent` |
-| **Player ViewModel** | [PlayerViewModelFactory.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModelFactory.kt) | Dependency injection factory instantiating `PlayerEngine`, `EventProcessor`, coordinators & `PlayerViewModel` | `create()` | `PlayerActivity`, `AppDatabase`, `UserPreferencesRepository` |
+| **Player ViewModel** | [PlayerViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlayerViewModel.kt) | Thin lifecycle bridge observing Android lifecycle (`@HiltViewModel`), collecting `GestureIntent`, and delegating to `PlayerEngine` & domain `UseCases` | `dispatch(action)`, `submitGestureIntent()`, `onScreenOff()`, `onLifecycleEvent()` | `PlayerActivity`, `PlayerEngine`, `SeekUseCase`, `TogglePlaybackUseCase`, `MediaRepository` |
 | **Player ViewModel** | [PlaylistManager.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/PlaylistManager.kt) | Playlist queue, index tracking & EOF auto-advance manager | `loadAndPlay()`, `playNext()`, `playPrevious()`, `onEndOfFile()` | `PlayerEngine`, `PlaylistState` |
 | **Player ViewModel** | [ResumePositionManager.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/ResumePositionManager.kt) | Debounced watch progress auto-saver & restorer (`ResumePositionDao`) | `saveCurrentPosition()`, `loadResumePosition()`, `clearResumePosition()` | `PlayerEngine`, `ResumePositionDao` |
 | **Player ViewModel** | [SubtitleController.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/SubtitleController.kt) | Subtitle track selection, sideloading (`sub-add`) & appearance styling coordinator | `setSubtitleSize()`, `setSubtitlePosition()`, `setPreferredSubtitleLanguage()` | `PlayerEngine`, `MpvController`, `UserPreferencesRepository` |
 | **Player ViewModel** | [TrackCoordinator.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/player/viewmodel/TrackCoordinator.kt) | Owns audio selection/sideloading, subtitle selection/sideloading & decode switching (`cycleDecodeMode`) | `setAudioTrack()`, `addAudioTrack()`, `setSubtitleTrack()`, `addSubtitle()`, `cycleDecodeMode()` | `PlayerEngine`, `MpvController`, `UserPreferencesRepository` |
-| **Settings** | [SettingsScreen.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsScreen.kt) & [SettingsViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsViewModel.kt) | Global application settings UI & DataStore state manager | `SettingsScreen(...)`, `update*()` | `UserPreferencesRepository`, `PlayerActivity` |
+| **Settings** | [SettingsScreen.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsScreen.kt) & [SettingsViewModel.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/settings/SettingsViewModel.kt) | Global application settings UI & DataStore state manager (includes `SettingsViewModelFactory`) | `SettingsScreen(...)`, `update*()` | `UserPreferencesRepository`, `PlayerActivity` |
 | **UI Theme** | [Color.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/ui/theme/Color.kt), [Theme.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/ui/theme/Theme.kt) & [Type.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/ui/theme/Type.kt) | Material Design 3 theme definitions | `MpvPlayerTheme(...)`, color scale, typography | Compose UI components across all screens |
 | **Utilities** | [TimeFormatter.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/util/TimeFormatter.kt) & [UriResolver.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/main/java/com/tapman104/mpvplayer/util/UriResolver.kt) | `HH:MM:SS` formatting and content URI to real path / file descriptor resolution | `formatTime()`, `resolveUri()`, `getDisplayName()` | `PlayerBottomControls`, `TrackCoordinator`, `PlayerActivity` |
 | **Tests** | [EventProcessorTest.kt](file:///c:/Users/tapman/Desktop/potatompv%20-%2022/mpvplayer22/app/src/test/java/com/tapman104/mpvplayer/core/engine/EventProcessorTest.kt) | Unit test suite verifying `EventProcessor` state updates, pause sync, `time-pos` throttling (~5 Hz) & seek suppression | `@Test verifyEventProcessing` | `EventProcessor` |
@@ -179,16 +211,19 @@ c:\Users\tapman\Desktop\potatompv - 22\mpvplayer22\
 graph TD
     UI[Layer 1: Presentation & Controls Layer<br>PlayerScreen / PlayerOverlay / PlayerBottomControls]
     GESTURE[Layer 2: Touch & Gesture Input Layer<br>GestureHandler / MpvGestureStateMachine / GestureIndicators]
-    VM[Layer 3: ViewModel Lifecycle Bridge<br>PlayerViewModel / KeyEventHandler / BroadcastReceivers]
-    ENGINE[Layer 4: Action Orchestrator Hub<br>PlayerEngine / PlayerAction / EventProcessor]
-    COORD[Layer 5: Command Coordinators & Managers<br>PlaybackCoordinator / TrackCoordinator / PlaylistManager / SubtitleController]
-    MPV[Layer 6: Native Engine Facade<br>MpvController / MpvCommandExecutor / MpvSurface / MPVLib JNI]
-    DB[Layer 7: Persistence & Storage<br>Room AppDatabase / DataStore UserPreferencesRepository]
+    VM[Layer 3: ViewModel Lifecycle Bridge<br>PlayerViewModel @HiltViewModel / KeyEventHandler / BroadcastReceivers]
+    DOMAIN[Layer 4: Clean Architecture Domain Layer<br>SeekUseCase / TogglePlaybackUseCase / MediaRepository]
+    ENGINE[Layer 5: Action Orchestrator Hub<br>PlayerEngine / PlayerAction / EventProcessor]
+    COORD[Layer 6: Command Coordinators & Managers<br>PlaybackCoordinator / TrackCoordinator / PlaylistManager / SubtitleController]
+    MPV[Layer 7: Native Engine Facade<br>MpvController / MpvCommandExecutor / MpvSurface / MPVLib JNI]
+    DB[Layer 8: Persistence & Storage<br>Room AppDatabase / DataStore UserPreferencesRepository]
 
     UI -->|PlayerAction| VM
     UI -->|Pointer Events| GESTURE
     GESTURE -->|GestureIntent| VM
+    VM -->|Domain UseCases| DOMAIN
     VM -->|PlayerAction| ENGINE
+    DOMAIN -->|Delegates Actions| COORD
     ENGINE -->|Delegates Commands| COORD
     COORD -->|Thread-Safe Commands| MPV
     COORD -->|Read / Write Preferences| DB
@@ -202,7 +237,8 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant UI as Compose UI / GestureHandler
-    participant VM as PlayerViewModel
+    participant VM as PlayerViewModel (@HiltViewModel)
+    participant DOM as SeekUseCase / Domain Layer
     participant ENG as PlayerEngine
     participant COORD as PlaybackCoordinator / TrackCoordinator
     participant EX as MpvCommandExecutor
