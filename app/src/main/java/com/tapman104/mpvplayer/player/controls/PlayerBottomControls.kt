@@ -27,28 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private fun formatMs(ms: Long): String {
-    if (ms <= 0L) return "0:00"
-    val totalSeconds = ms / 1000
-    val s = (totalSeconds % 60).toInt()
-    val totalMinutes = totalSeconds / 60
-    val m = (totalMinutes % 60).toInt()
-    val h = (totalMinutes / 60).toInt()
-    return buildString(if (h > 0) 8 else 5) {
-        if (h > 0) {
-            append(h).append(':')
-            if (m < 10) append('0')
-            append(m).append(':')
-            if (s < 10) append('0')
-            append(s)
-        } else {
-            append(m).append(':')
-            if (s < 10) append('0')
-            append(s)
-        }
-    }
-}
+import com.tapman104.mpvplayer.util.TimeFormatter
 
 @Composable
 fun PlayerBottomControls(
@@ -68,7 +47,7 @@ fun PlayerBottomControls(
     val sliderValue = if (durationMs > 0L) displayPositionMs.toFloat() / durationMs else 0f
     val displayFraction = if (dragFraction >= 0f) dragFraction else sliderValue
 
-    val durationString = remember(durationMs) { formatMs(durationMs) }
+    val durationString = remember(durationMs) { TimeFormatter.formatMs(durationMs) }
     val sliderColors = PlayerControlsStyles.rememberSliderColors()
 
     val onSeekRef = rememberUpdatedState(onSeek)
@@ -104,7 +83,7 @@ fun PlayerBottomControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = formatMs(displayPositionMs),
+                text = TimeFormatter.formatMs(displayPositionMs),
                 color = Color.White,
                 fontSize = 13.sp
             )
