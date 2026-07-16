@@ -8,6 +8,8 @@ import com.tapman104.mpvplayer.core.engine.MpvCommandExecutor
 import com.tapman104.mpvplayer.core.engine.MpvController
 import com.tapman104.mpvplayer.core.engine.MpvEventDispatcher
 import com.tapman104.mpvplayer.core.preferences.UserPreferencesRepository
+import com.tapman104.mpvplayer.player.domain.repository.LocalMediaRepository
+import com.tapman104.mpvplayer.player.domain.repository.MediaRepository
 import com.tapman104.mpvplayer.player.engine.PlayerEngine
 import com.tapman104.mpvplayer.player.state.PlayerState
 import com.tapman104.mpvplayer.player.state.PositionState
@@ -19,33 +21,44 @@ import com.tapman104.mpvplayer.player.viewmodel.TrackCoordinator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
+import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
-import javax.inject.Singleton
 import kotlin.math.roundToInt
 
 @Module
-@InstallIn(SingletonComponent::class)
+@InstallIn(ViewModelComponent::class)
 object EngineModule {
 
     @Provides
-    @Singleton
+    @ViewModelScoped
     fun provideMpvController(@ApplicationContext context: Context): MpvController = MpvController(context)
 
     @Provides
-    @Singleton
+    @ViewModelScoped
     fun provideMpvCommandExecutor(c: MpvController): MpvCommandExecutor = c.executor
 
     @Provides
-    @Singleton
+    @ViewModelScoped
     fun provideMpvEventDispatcher(c: MpvController): MpvEventDispatcher = c.dispatcher
 
     @Provides
-    @Singleton
+    @ViewModelScoped
+    fun providePlaylistManager(
+        @ApplicationContext context: Context,
+        controller: MpvController
+    ): PlaylistManager = PlaylistManager(
+        context = context,
+        onLoadFile = { path -> controller.executor.loadFile(path) },
+        hasSurface = { controller.surface.hasSurface() }
+    )
+
+    @Provides
+    @ViewModelScoped
     fun providePlayerEngine(
         @ApplicationContext context: Context,
         controller: MpvController,
@@ -103,10 +116,17 @@ object EngineModule {
     }
 
     @Provides
-    @Singleton
+    @ViewModelScoped
     fun providePlaybackCoordinator(engine: PlayerEngine): PlaybackCoordinator = engine.playbackCoordinator
 
     @Provides
-    @Singleton
+    @ViewModelScoped
     fun provideTrackCoordinator(engine: PlayerEngine): TrackCoordinator = engine.trackCoordinator
+
+    @Provides
+    @ViewModelScoped
+    fun provideMediaRepository(
+        @ApplicationContext context: Context,
+        playlistManager: PlaylistManager
+    ): MediaRepository = LocalMediaRepository(context, playlistManager)
 }

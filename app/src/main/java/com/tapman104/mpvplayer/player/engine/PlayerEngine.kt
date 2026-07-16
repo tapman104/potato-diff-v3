@@ -21,6 +21,7 @@ import com.tapman104.mpvplayer.player.viewmodel.SubtitleController
 import com.tapman104.mpvplayer.player.viewmodel.TrackCoordinator
 import `is`.xyz.mpv.MPVLib
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -270,6 +271,7 @@ class PlayerEngine(
 
     fun destroy() {
         Log.d(TAG, "PlayerEngine.destroy()")
+        scope.cancel()
         controller.dispatcher.removeListener(eventProcessor)
         controller.destroy()
     }
