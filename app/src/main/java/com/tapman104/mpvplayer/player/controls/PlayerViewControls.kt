@@ -1,5 +1,6 @@
 package com.tapman104.mpvplayer.player.controls
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
@@ -11,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.tapman104.mpvplayer.player.model.ViewMode
 
 @Composable
@@ -21,22 +23,35 @@ fun PlayerViewControls(
     onEnterPip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onCycleViewMode) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        IconButton(
+            onClick = onCycleViewMode,
+            modifier = PlayerControlsStyles.iconButtonModifier
+        ) {
             Icon(
                 imageVector = Icons.Default.AspectRatio,
                 contentDescription = "Cycle view mode: ${currentViewMode.name}",
                 tint = Color.White
             )
         }
-        IconButton(onClick = onRotate) {
+        IconButton(
+            onClick = onRotate,
+            modifier = PlayerControlsStyles.iconButtonModifier
+        ) {
             Icon(
                 imageVector = Icons.Default.ScreenRotation,
                 contentDescription = "Rotate video",
                 tint = Color.White
             )
         }
-        IconButton(onClick = onEnterPip) {
+        IconButton(
+            onClick = onEnterPip,
+            modifier = PlayerControlsStyles.iconButtonModifier
+        ) {
             Icon(
                 imageVector = Icons.Default.PictureInPicture,
                 contentDescription = "Picture-in-picture",
