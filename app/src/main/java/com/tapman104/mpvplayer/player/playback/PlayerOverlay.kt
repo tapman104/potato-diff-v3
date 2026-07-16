@@ -105,6 +105,7 @@ fun PlayerOverlay(
     onCycleViewMode: () -> Unit = {},
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
+    isControlsVisible: Boolean = true,
     modifier: Modifier = Modifier
 ) = PlayerOverlay(
     fileName = fileName,
@@ -138,6 +139,7 @@ fun PlayerOverlay(
     onCycleViewMode = onCycleViewMode,
     onRotate = onRotate,
     onEnterPip = onEnterPip,
+    isControlsVisible = isControlsVisible,
     modifier = modifier
 )
 
@@ -174,6 +176,7 @@ fun PlayerOverlay(
     onCycleViewMode: () -> Unit = {},
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
+    isControlsVisible: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var overlayState by remember { mutableStateOf(OverlayUiState()) }
@@ -202,6 +205,10 @@ fun PlayerOverlay(
             delay(3000L)
             overlayState = overlayState.copy(areControlsVisible = false)
         }
+    }
+
+    LaunchedEffect(isControlsVisible) {
+        overlayState = overlayState.copy(areControlsVisible = isControlsVisible)
     }
 
     val positionStateProviderRef = rememberUpdatedState(positionStateProvider)
@@ -236,7 +243,11 @@ fun PlayerOverlay(
         }
     }
     val onToggleControls = remember {
-        { overlayState = overlayState.copy(areControlsVisible = !overlayState.areControlsVisible) }
+        {
+            if (isControlsVisible) {
+                overlayState = overlayState.copy(areControlsVisible = !overlayState.areControlsVisible)
+            }
+        }
     }
     val onOpenAudioDialog = remember {
         { overlayState = overlayState.copy(activeDialog = OverlayDialog.AudioTracks) }

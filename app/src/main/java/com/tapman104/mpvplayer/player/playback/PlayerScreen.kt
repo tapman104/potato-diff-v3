@@ -49,6 +49,7 @@ fun PlayerScreen(
     onCycleViewMode: () -> Unit = {},
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
+    isControlsVisible: Boolean = true,
     modifier: Modifier = Modifier
 ) = PlayerScreen(
     playerState = playerState,
@@ -83,6 +84,7 @@ fun PlayerScreen(
     onCycleViewMode = onCycleViewMode,
     onRotate = onRotate,
     onEnterPip = onEnterPip,
+    isControlsVisible = isControlsVisible,
     modifier = modifier
 )
 
@@ -120,6 +122,7 @@ fun PlayerScreen(
     onCycleViewMode: () -> Unit = {},
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
+    isControlsVisible: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -170,6 +173,7 @@ fun PlayerScreen(
             onCycleViewMode = onCycleViewMode,
             onRotate = onRotate,
             onEnterPip = onEnterPip,
+            isControlsVisible = isControlsVisible,
             modifier = Modifier.fillMaxSize()
         )
     }

@@ -4,10 +4,12 @@ import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.WindowManager
@@ -54,6 +56,26 @@ class PlayerActivity : ComponentActivity() {
     private val viewModel: PlayerViewModel by viewModels()
 
     private lateinit var surfaceView: SurfaceView
+
+    private var isPortraitMode = false
+
+    private fun onRotateScreen() {
+        isPortraitMode = !isPortraitMode
+        requestedOrientation = if (isPortraitMode) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+    }
+
+    private fun enterPip() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+            enterPictureInPictureMode(params)
+        }
+    }
 
     // ── File pickers ─────────────────────────────────────────────────────────
 
@@ -129,6 +151,7 @@ class PlayerActivity : ComponentActivity() {
                     initialValue = QuickActionsPosition.TOP_RIGHT
                 )
                 val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
+                val isControlsVisible by viewModel.isControlsVisible.collectAsStateWithLifecycle()
 
                 var showSettings by remember { mutableStateOf(false) }
 
@@ -198,14 +221,9 @@ class PlayerActivity : ComponentActivity() {
                     quickActionsPosition = quickActionsPosition,
                     currentViewMode = viewMode,
                     onCycleViewMode = { viewModel.cycleViewMode() },
-                    onRotate = { viewModel.toggleVideoRotate() },
-                    onEnterPip = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            runCatching {
-                                enterPictureInPictureMode(PictureInPictureParams.Builder().build())
-                            }
-                        }
-                    }
+                    onRotate = { onRotateScreen() },
+                    onEnterPip = { enterPip() },
+                    isControlsVisible = isControlsVisible
                 )
 
                 if (showSettings) {
@@ -214,12 +232,14 @@ class PlayerActivity : ComponentActivity() {
                     }
                     BackHandler {
                         showSettings = false
+                        isPortraitMode = false
                         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                     }
                     SettingsScreen(
                         viewModel = settingsViewModel,
                         onBack = {
                             showSettings = false
+                            isPortraitMode = false
                             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                         }
                     )
@@ -264,5 +284,20 @@ class PlayerActivity : ComponentActivity() {
         return keyEventHandler.handleKeyUp(keyCode, superResult, audioManager).let {
             if (it) it else superResult
         }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (viewModel.isPlaying) {
+            enterPip()
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        viewModel.setControlsVisible(!isInPictureInPictureMode)
     }
 }

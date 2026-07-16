@@ -79,6 +79,16 @@ class PlayerViewModel @Inject constructor(
     val subtitleAppearance = engine.subtitleAppearance
     val preferredSubtitleLang = engine.preferredSubtitleLang
 
+    val isPlaying: Boolean
+        get() = playerState.value.isPlaying
+
+    private val _isControlsVisible = MutableStateFlow(true)
+    val isControlsVisible: StateFlow<Boolean> = _isControlsVisible.asStateFlow()
+
+    fun setControlsVisible(visible: Boolean) {
+        _isControlsVisible.value = visible
+    }
+
     // ── Preference flows (read by PlayerActivity) ─────────────────────────────
 
     val resumePlayback: StateFlow<Boolean> = engine.resumePlayback
@@ -247,8 +257,6 @@ class PlayerViewModel @Inject constructor(
     private val _viewMode = MutableStateFlow(ViewMode.FIT)
     val viewMode: StateFlow<ViewMode> = _viewMode.asStateFlow()
 
-    private var currentRotation = 0
-
     fun cycleViewMode() {
         val nextIndex = (_viewMode.value.ordinal + 1) % ViewMode.entries.size
         val nextMode = ViewMode.entries[nextIndex]
@@ -263,13 +271,6 @@ class PlayerViewModel @Inject constructor(
                 -1f -> MPVLib.setPropertyString("video-aspect-override", "-1")
                 else -> MPVLib.setPropertyString("video-aspect-override", aspect.toString())
             }
-        }
-    }
-
-    fun toggleVideoRotate() {
-        currentRotation = if (currentRotation == 0) 90 else 0
-        controller.executor.execute {
-            MPVLib.setPropertyString("video-rotate", currentRotation.toString())
         }
     }
 
