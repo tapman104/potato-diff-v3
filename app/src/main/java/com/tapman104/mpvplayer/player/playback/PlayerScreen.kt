@@ -50,6 +50,77 @@ fun PlayerScreen(
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
     modifier: Modifier = Modifier
+) = PlayerScreen(
+    playerState = playerState,
+    positionStateProvider = { positionState },
+    surfaceView = surfaceView,
+    onTogglePlay = onTogglePlay,
+    initialBrightness = initialBrightness,
+    onBrightnessChange = onBrightnessChange,
+    onGestureIntent = onGestureIntent,
+    onOpenFile = onOpenFile,
+    onBack = onBack,
+    onOpenSettings = onOpenSettings,
+    fileName = fileName,
+    onAudioTrackSelected = onAudioTrackSelected,
+    onAddAudioClick = onAddAudioClick,
+    onSubtitleTrackSelected = onSubtitleTrackSelected,
+    onDisableSubtitles = onDisableSubtitles,
+    onAddSubtitleClick = onAddSubtitleClick,
+    onCycleDecodeMode = onCycleDecodeMode,
+    onPause = onPause,
+    onPlay = onPlay,
+    onSubtitleSizeChange = onSubtitleSizeChange,
+    onSubtitlePositionChange = onSubtitlePositionChange,
+    onSubtitleAppearanceReset = onSubtitleAppearanceReset,
+    doubleTapSeekSeconds = doubleTapSeekSeconds,
+    swipeToSeek = swipeToSeek,
+    brightnessSwipe = brightnessSwipe,
+    volumeSwipe = volumeSwipe,
+    longPress2x = longPress2x,
+    quickActionsPosition = quickActionsPosition,
+    currentViewMode = currentViewMode,
+    onCycleViewMode = onCycleViewMode,
+    onRotate = onRotate,
+    onEnterPip = onEnterPip,
+    modifier = modifier
+)
+
+@Composable
+fun PlayerScreen(
+    playerState: PlayerState,
+    positionStateProvider: () -> PositionState,
+    surfaceView: SurfaceView,
+    onTogglePlay: () -> Unit,
+    initialBrightness: Float = -1f,
+    onBrightnessChange: (Float) -> Unit = {},
+    onGestureIntent: (GestureIntent) -> Unit = {},
+    onOpenFile: () -> Unit,
+    onBack: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    fileName: String = "Unknown",
+    onAudioTrackSelected: (Int) -> Unit = {},
+    onAddAudioClick: () -> Unit = {},
+    onSubtitleTrackSelected: (Int) -> Unit = {},
+    onDisableSubtitles: () -> Unit = {},
+    onAddSubtitleClick: () -> Unit = {},
+    onCycleDecodeMode: (DecodeMode) -> Unit = {},
+    onPause: () -> Unit = {},
+    onPlay: () -> Unit = {},
+    onSubtitleSizeChange: (Float) -> Unit = {},
+    onSubtitlePositionChange: (Float) -> Unit = {},
+    onSubtitleAppearanceReset: () -> Unit = {},
+    doubleTapSeekSeconds: Int = 10,
+    swipeToSeek: Boolean = true,
+    brightnessSwipe: Boolean = true,
+    volumeSwipe: Boolean = true,
+    longPress2x: Boolean = true,
+    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.TOP_RIGHT,
+    currentViewMode: ViewMode = ViewMode.FIT,
+    onCycleViewMode: () -> Unit = {},
+    onRotate: () -> Unit = {},
+    onEnterPip: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = Modifier
@@ -70,7 +141,7 @@ fun PlayerScreen(
         PlayerOverlay(
             fileName = fileName,
             playerState = playerState,
-            positionState = positionState,
+            positionStateProvider = positionStateProvider,
             onGestureIntent = onGestureIntent,
             onOpenFile = onOpenFile,
             onBack = onBack,
@@ -103,3 +174,4 @@ fun PlayerScreen(
         )
     }
 }
+

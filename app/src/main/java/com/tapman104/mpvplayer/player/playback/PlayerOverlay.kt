@@ -106,6 +106,75 @@ fun PlayerOverlay(
     onRotate: () -> Unit = {},
     onEnterPip: () -> Unit = {},
     modifier: Modifier = Modifier
+) = PlayerOverlay(
+    fileName = fileName,
+    playerState = playerState,
+    positionStateProvider = { positionState },
+    onOpenFile = onOpenFile,
+    onBack = onBack,
+    onOpenSettings = onOpenSettings,
+    initialBrightness = initialBrightness,
+    onBrightnessChange = onBrightnessChange,
+    onGestureIntent = onGestureIntent,
+    onTogglePlay = onTogglePlay,
+    onAudioTrackSelected = onAudioTrackSelected,
+    onAddAudioClick = onAddAudioClick,
+    onSubtitleTrackSelected = onSubtitleTrackSelected,
+    onDisableSubtitles = onDisableSubtitles,
+    onAddSubtitleClick = onAddSubtitleClick,
+    onPause = onPause,
+    onPlay = onPlay,
+    onCycleDecodeMode = onCycleDecodeMode,
+    onSubtitleSizeChange = onSubtitleSizeChange,
+    onSubtitlePositionChange = onSubtitlePositionChange,
+    onSubtitleAppearanceReset = onSubtitleAppearanceReset,
+    doubleTapSeekSeconds = doubleTapSeekSeconds,
+    swipeToSeek = swipeToSeek,
+    brightnessSwipe = brightnessSwipe,
+    volumeSwipe = volumeSwipe,
+    longPress2x = longPress2x,
+    quickActionsPosition = quickActionsPosition,
+    currentViewMode = currentViewMode,
+    onCycleViewMode = onCycleViewMode,
+    onRotate = onRotate,
+    onEnterPip = onEnterPip,
+    modifier = modifier
+)
+
+@Composable
+fun PlayerOverlay(
+    fileName: String,
+    playerState: PlayerState,
+    positionStateProvider: () -> PositionState,
+    onOpenFile: () -> Unit,
+    onBack: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    initialBrightness: Float = -1f,
+    onBrightnessChange: (Float) -> Unit = {},
+    onGestureIntent: (GestureIntent) -> Unit = {},
+    onTogglePlay: () -> Unit,
+    onAudioTrackSelected: (Int) -> Unit,
+    onAddAudioClick: () -> Unit,
+    onSubtitleTrackSelected: (Int) -> Unit,
+    onDisableSubtitles: () -> Unit,
+    onAddSubtitleClick: () -> Unit,
+    onPause: () -> Unit,
+    onPlay: () -> Unit,
+    onCycleDecodeMode: (DecodeMode) -> Unit,
+    onSubtitleSizeChange: (Float) -> Unit,
+    onSubtitlePositionChange: (Float) -> Unit,
+    onSubtitleAppearanceReset: () -> Unit,
+    doubleTapSeekSeconds: Int = 10,
+    swipeToSeek: Boolean = true,
+    brightnessSwipe: Boolean = true,
+    volumeSwipe: Boolean = true,
+    longPress2x: Boolean = true,
+    quickActionsPosition: QuickActionsPosition = QuickActionsPosition.TOP_RIGHT,
+    currentViewMode: ViewMode = ViewMode.FIT,
+    onCycleViewMode: () -> Unit = {},
+    onRotate: () -> Unit = {},
+    onEnterPip: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     var overlayState by remember { mutableStateOf(OverlayUiState()) }
     // Drives the animated visibility of the decode-mode dialog independently so
@@ -135,8 +204,9 @@ fun PlayerOverlay(
         }
     }
 
-    val currentPositionMs = rememberUpdatedState(positionState.currentPositionMs)
-    val durationMs = rememberUpdatedState(positionState.durationMs)
+    val positionStateProviderRef = rememberUpdatedState(positionStateProvider)
+    val currentPositionMs = remember { { positionStateProviderRef.value().currentPositionMs } }
+    val durationMs = remember { { positionStateProviderRef.value().durationMs } }
     val currentSpeed = rememberUpdatedState(playerState.speed)
     val onSeekPreviewMs = remember { { ms: Long -> gestureSeekPreviewMs = ms } }
     val onGestureIntentAction = remember(onGestureIntent) {
@@ -195,22 +265,12 @@ fun PlayerOverlay(
             onOpenSettings()
         }
     }
-    val fileInfo = remember(fileName, positionState.durationMs, playerState.audioTracks, playerState.subtitleTracks) {
-        FileInfo(
-            fileName = fileName,
-            filePath = null,
-            durationMs = positionState.durationMs,
-            videoTracks = 1,
-            audioTracks = playerState.audioTracks.size,
-            subtitleTracks = playerState.subtitleTracks.size,
-        )
-    }
 
     Box(modifier = modifier.fillMaxSize()) {
 
         GestureHandler(
-            currentPositionMs = { currentPositionMs.value },
-            durationMs = { durationMs.value },
+            currentPositionMs = currentPositionMs,
+            durationMs = durationMs,
             isPlaying = !playerState.isPaused,
             currentSpeed = { currentSpeed.value },
             onIntent = onGestureIntentAction,
@@ -289,11 +349,12 @@ fun PlayerOverlay(
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
+            val posState = positionStateProvider()
             PlayerBottomControls(
                 isPlaying = playerState.isPlaying,
-                currentPositionMs = positionState.currentPositionMs,
-                durationMs = positionState.durationMs,
-                bufferPositionMs = positionState.demuxerCacheTimeMs,
+                currentPositionMs = posState.currentPositionMs,
+                durationMs = posState.durationMs,
+                bufferPositionMs = posState.demuxerCacheTimeMs,
                 gestureSeekPreviewMs = gestureSeekPreviewMs,
                 onTogglePlay = onTogglePlay,
                 onSeek = onSeekCommitAction,
@@ -423,6 +484,17 @@ fun PlayerOverlay(
         }
 
         if (overlayState.activeDialog == OverlayDialog.MoreOptions) {
+            val posState = positionStateProvider()
+            val fileInfo = remember(fileName, posState.durationMs, playerState.audioTracks, playerState.subtitleTracks) {
+                FileInfo(
+                    fileName = fileName,
+                    filePath = null,
+                    durationMs = posState.durationMs,
+                    videoTracks = 1,
+                    audioTracks = playerState.audioTracks.size,
+                    subtitleTracks = playerState.subtitleTracks.size,
+                )
+            }
             MoreOptionsSheet(
                 playbackSpeed = playerState.playbackSpeed.toFloat(),
                 fileInfo = fileInfo,

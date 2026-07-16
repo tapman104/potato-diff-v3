@@ -9,6 +9,8 @@ import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,23 +25,35 @@ fun PlayerViewControls(
     onEnterPip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val onCycleRef = rememberUpdatedState(onCycleViewMode)
+    val onRotateRef = rememberUpdatedState(onRotate)
+    val onPipRef = rememberUpdatedState(onEnterPip)
+
+    val handleCycle = remember { { onCycleRef.value() } }
+    val handleRotate = remember { { onRotateRef.value() } }
+    val handlePip = remember { { onPipRef.value() } }
+
+    val aspectRatioDescription = remember(currentViewMode) {
+        "Cycle view mode: ${currentViewMode.name}"
+    }
+
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         IconButton(
-            onClick = onCycleViewMode,
+            onClick = handleCycle,
             modifier = PlayerControlsStyles.iconButtonModifier
         ) {
             Icon(
                 imageVector = Icons.Default.AspectRatio,
-                contentDescription = "Cycle view mode: ${currentViewMode.name}",
+                contentDescription = aspectRatioDescription,
                 tint = Color.White
             )
         }
         IconButton(
-            onClick = onRotate,
+            onClick = handleRotate,
             modifier = PlayerControlsStyles.iconButtonModifier
         ) {
             Icon(
@@ -49,7 +63,7 @@ fun PlayerViewControls(
             )
         }
         IconButton(
-            onClick = onEnterPip,
+            onClick = handlePip,
             modifier = PlayerControlsStyles.iconButtonModifier
         ) {
             Icon(

@@ -10,6 +10,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,39 +30,53 @@ fun PlayerQuickActions(
 ) {
     val buttonModifier = PlayerControlsStyles.iconButtonModifier
 
+    val onAudioRef = rememberUpdatedState(onSelectAudioTrack)
+    val onSubtitleRef = rememberUpdatedState(onSelectSubtitleTrack)
+    val onDecodeRef = rememberUpdatedState(onDecodeModeClick)
+    val onMoreRef = rememberUpdatedState(onMoreOptions)
+
+    val handleAudio = remember { { onAudioRef.value() } }
+    val handleSubtitle = remember { { onSubtitleRef.value() } }
+    val handleDecode = remember { { onDecodeRef.value() } }
+    val handleMore = remember { { onMoreRef.value() } }
+
+    val decodeLabel = remember(decodeMode) {
+        when (decodeMode) {
+            DecodeMode.HW -> "HW"
+            DecodeMode.HWPlus -> "HW+"
+            DecodeMode.SW -> "SW"
+        }
+    }
+
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         IconButton(
-            onClick = onSelectAudioTrack,
+            onClick = handleAudio,
             modifier = buttonModifier
         ) {
             Icon(Icons.Default.AudioFile, contentDescription = "Audio track", tint = Color.White)
         }
         IconButton(
-            onClick = onSelectSubtitleTrack,
+            onClick = handleSubtitle,
             modifier = buttonModifier
         ) {
             Icon(Icons.Default.Subtitles, contentDescription = "Subtitles", tint = Color.White)
         }
         IconButton(
-            onClick = onDecodeModeClick,
+            onClick = handleDecode,
             modifier = buttonModifier
         ) {
             Text(
-                text = when (decodeMode) {
-                    DecodeMode.HW -> "HW"
-                    DecodeMode.HWPlus -> "HW+"
-                    DecodeMode.SW -> "SW"
-                },
+                text = decodeLabel,
                 color = Color.White,
                 fontSize = 12.sp
             )
         }
         IconButton(
-            onClick = onMoreOptions,
+            onClick = handleMore,
             modifier = buttonModifier
         ) {
             Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = Color.White)

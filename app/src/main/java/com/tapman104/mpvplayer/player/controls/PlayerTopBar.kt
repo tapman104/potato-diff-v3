@@ -9,6 +9,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +30,18 @@ fun PlayerTopBar(
     onMoreOptions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val onBackRef = rememberUpdatedState(onBack)
+    val onSelectAudioTrackRef = rememberUpdatedState(onSelectAudioTrack)
+    val onSelectSubtitleTrackRef = rememberUpdatedState(onSelectSubtitleTrack)
+    val onDecodeModeClickRef = rememberUpdatedState(onDecodeModeClick)
+    val onMoreOptionsRef = rememberUpdatedState(onMoreOptions)
+
+    val handleBack = remember { { onBackRef.value() } }
+    val handleAudio = remember { { onSelectAudioTrackRef.value() } }
+    val handleSubtitle = remember { { onSelectSubtitleTrackRef.value() } }
+    val handleDecode = remember { { onDecodeModeClickRef.value() } }
+    val handleMore = remember { { onMoreOptionsRef.value() } }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -35,7 +49,7 @@ fun PlayerTopBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(
-            onClick = onBack,
+            onClick = handleBack,
             modifier = PlayerControlsStyles.iconButtonModifier
         ) {
             Icon(
@@ -56,10 +70,10 @@ fun PlayerTopBar(
         )
         PlayerQuickActions(
             decodeMode = decodeMode,
-            onSelectAudioTrack = onSelectAudioTrack,
-            onSelectSubtitleTrack = onSelectSubtitleTrack,
-            onDecodeModeClick = onDecodeModeClick,
-            onMoreOptions = onMoreOptions
+            onSelectAudioTrack = handleAudio,
+            onSelectSubtitleTrack = handleSubtitle,
+            onDecodeModeClick = handleDecode,
+            onMoreOptions = handleMore
         )
     }
 }

@@ -107,7 +107,7 @@ class PlayerActivity : ComponentActivity() {
         setContent {
             MpvPlayerTheme {
                 val playerState by viewModel.playerState.collectAsStateWithLifecycle()
-                val positionState by viewModel.positionState.collectAsStateWithLifecycle()
+                val positionStateState = viewModel.positionState.collectAsStateWithLifecycle()
                 val playlistState by viewModel.playlistState.collectAsStateWithLifecycle()
 
                 val doubleTapSeekSeconds by viewModel.doubleTapSeekSeconds.collectAsStateWithLifecycle(
@@ -157,7 +157,7 @@ class PlayerActivity : ComponentActivity() {
                         ?.let { UriResolver.getDisplayName(applicationContext, Uri.parse(it)) }
                         ?: "Unknown",
                     playerState = playerState,
-                    positionState = positionState,
+                    positionStateProvider = { positionStateState.value },
                     surfaceView = surfaceView,
                     onTogglePlay = { viewModel.dispatch(PlayerAction.TogglePlay) },
                     initialBrightness = initialBrightness,
